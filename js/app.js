@@ -26,6 +26,14 @@ App.Main = {
 
     // 3. Načtení modulů (izolovaně v try/catch)
     try {
+      if (App.Zones && typeof App.Zones.init === 'function') {
+        await App.Zones.init();
+      }
+    } catch (e) {
+      console.error("Zones module init error:", e);
+    }
+
+    try {
       if (App.Items && typeof App.Items.loadItems === 'function') {
         await App.Items.loadItems();
         App.Items.renderItems();
@@ -48,14 +56,6 @@ App.Main = {
       }
     } catch (e) {
       console.error("Shopping module init error:", e);
-    }
-
-    try {
-      if (App.Zones && typeof App.Zones.setupZonesUI === 'function') {
-        App.Zones.setupZonesUI();
-      }
-    } catch (e) {
-      console.error("Zones module init error:", e);
     }
 
     try {

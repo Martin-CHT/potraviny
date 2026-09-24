@@ -766,17 +766,34 @@
     <!-- Modal: Visual Zones (Fridge / Freezer / Pantry) -->
     <div id="modal-visual-zones" class="modal hidden">
         <div class="modal-overlay modal-backdrop"></div>
-        <div class="modal-content modal-large" style="max-width: 900px;">
+        <div class="modal-content modal-large" style="max-width: 950px;">
             <div class="modal-header">
                 <h2>🧊 Vizuální přehled (Zóny & Přihrádky)</h2>
                 <button class="btn-close modal-close">&times;</button>
             </div>
             <div class="modal-body">
-                <p class="text-small text-muted mb-3">Kliknutím na přihrádku nebo šuplík vyfiltrujete položky v zásobách. Kliknutím na potravinu zobrazíte její detail.</p>
                 <div id="visual-zones-container"></div>
             </div>
             <div class="modal-footer">
                 <button class="btn-primary modal-close">Zavřít</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Zone & Shelf Customization Editor -->
+    <div id="modal-zone-editor" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content modal-large" style="max-width: 850px;">
+            <div class="modal-header">
+                <h2>⚙️ Správce zón, polic a spotřebičů</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-small text-muted mb-3">Zde můžete přidávat nové spotřebiče (např. Sklep, Vinotéka, Balkon), měnit velikosti polic, výšky, popisky a přeuspořádat jejich pořadí.</p>
+                <div id="zone-editor-container"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary modal-close">Uložit a zavřít</button>
             </div>
         </div>
     </div>

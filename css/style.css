@@ -1283,15 +1283,32 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 
 /* ==========================================================
-   Visual Fridge / Freezer / Pantry Layout
+   Visual Fridge / Freezer / Pantry Layout & Drag and Drop
    ========================================================== */
+.visual-zones-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  padding: 8px 14px;
+  border-radius: var(--border-radius-sm);
+}
+
+.visual-zones-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
 .visual-fridge-layout {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 900px) {
   .visual-fridge-layout {
     grid-template-columns: repeat(3, 1fr);
   }
@@ -1307,9 +1324,10 @@ input:checked + .slider:before { transform: translateX(20px); }
   flex-direction: column;
 }
 
-.fridge-box { border-top: 4px solid #1a73e8; }
-.freezer-box { border-top: 4px solid #00acc1; }
-.pantry-box { border-top: 4px solid #e67e22; }
+.appliance-theme-fridge { border-top: 5px solid #1a73e8; }
+.appliance-theme-freezer { border-top: 5px solid #00acc1; }
+.appliance-theme-pantry { border-top: 5px solid #e67e22; }
+.appliance-theme-custom { border-top: 5px solid #9b59b6; }
 
 .appliance-header {
   padding: 10px 14px;
@@ -1320,101 +1338,350 @@ input:checked + .slider:before { transform: translateX(20px); }
   align-items: center;
 }
 
-.appliance-header h3 {
+.appliance-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.appliance-title-wrap h3 {
   margin: 0;
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 600;
 }
 
-.appliance-body {
+.appliance-icon {
+  font-size: 1.3rem;
+}
+
+/* Chladnička – rozdělení: hlavní police + dveře přes celou výšku */
+.appliance-fridge-body {
+  display: grid;
+  grid-template-columns: 1.7fr 1.2fr;
+  gap: 10px;
   padding: 10px;
+  flex: 1;
+}
+
+@media (max-width: 480px) {
+  .appliance-fridge-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fridge-main-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fridge-door-column {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(26, 115, 232, 0.04);
+  border-left: 2px dashed rgba(26, 115, 232, 0.25);
+  padding-left: 8px;
+  border-radius: 6px;
+}
+
+.column-header-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.4px;
+  padding-bottom: 2px;
+}
+
+.main-shelves-stack,
+.door-shelves-stack,
+.stacked-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
   flex: 1;
 }
 
+.stacked-body {
+  padding: 10px;
+}
+
+/* Police, Šuplíky a Přihrádky ve dveřích */
 .zone-shelf,
-.zone-drawer {
+.zone-drawer,
+.zone-door-shelf {
   background: var(--background);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border);
   border-radius: 8px;
   padding: 8px 10px;
-  cursor: pointer;
-  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  position: relative;
 }
 
-.zone-shelf:hover,
-.zone-drawer:hover {
-  border-color: var(--primary);
-  background: rgba(26, 115, 232, 0.05);
+.zone-shelf {
+  border-left: 3.5px solid #1a73e8;
 }
 
 .zone-drawer {
+  border-left: 3.5px solid #00acc1;
   border-style: dashed;
+  background: rgba(0, 172, 193, 0.03);
 }
 
-.zone-title {
-  font-size: 0.75rem;
+.zone-door-shelf {
+  border-left: 3.5px solid #f39c12;
+  background: rgba(243, 156, 18, 0.04);
+}
+
+/* Velikosti / Výšky polic */
+.shelf-size-small { min-height: 55px; }
+.shelf-size-medium { min-height: 85px; }
+.shelf-size-large { min-height: 125px; }
+
+.zone-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.zone-title-text {
+  font-size: 0.78rem;
   font-weight: 600;
+  color: var(--text-primary);
+}
+
+.zone-desc-text {
+  font-size: 0.68rem;
   color: var(--text-secondary);
   margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  opacity: 0.8;
+  line-height: 1.2;
 }
 
-.zone-items {
+.zone-count-badge {
+  font-size: 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.zone-items-dropzone {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  min-height: 28px;
+  min-height: 32px;
   align-items: center;
+  padding: 2px 0;
 }
 
-.zone-row-split {
-  display: flex;
-  gap: 8px;
+.empty-shelf-text {
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--text-secondary);
+  opacity: 0.55;
+}
+
+/* ==========================================================
+   Drag and Drop stavy
+   ========================================================== */
+.zone-shelf.drag-over,
+.zone-drawer.drag-over,
+.zone-door-shelf.drag-over {
+  background: rgba(26, 115, 232, 0.18) !important;
+  border-color: var(--primary) !important;
+  border-style: solid !important;
+  box-shadow: 0 0 10px rgba(26, 115, 232, 0.4);
+  transform: scale(1.015);
 }
 
 .visual-item-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--surface);
   border: 1px solid var(--border);
   font-size: 0.8rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  cursor: grab;
+  user-select: none;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
 }
 
 .visual-item-chip:hover {
   transform: translateY(-2px);
-  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+}
+
+.visual-item-chip:active {
+  cursor: grabbing;
+}
+
+.chip-handle {
+  font-size: 0.7rem;
+  opacity: 0.45;
+  margin-right: -2px;
+}
+
+.visual-item-chip.is-dragging {
+  opacity: 0.35;
+  border: 1.5px dashed var(--primary);
+  transform: scale(0.92);
+}
+
+.touch-drag-clone {
+  box-shadow: 0 10px 25px rgba(0,0,0,0.4) !important;
+  transform: scale(1.08) !important;
+  background: var(--surface) !important;
 }
 
 .visual-item-chip.exp-expired {
   border-color: var(--danger);
-  background: rgba(234, 67, 53, 0.12);
+  background: rgba(234, 67, 53, 0.14);
   color: var(--danger);
 }
 
 .visual-item-chip.exp-expiring_critical {
   border-color: #e67e22;
-  background: rgba(230, 126, 34, 0.15);
+  background: rgba(230, 126, 34, 0.18);
 }
 
 .visual-item-chip.exp-expiring_soon {
   border-color: #f1c40f;
-  background: rgba(241, 196, 15, 0.15);
+  background: rgba(241, 196, 15, 0.18);
 }
 
 .chip-qty {
   font-size: 0.7rem;
-  opacity: 0.7;
+  opacity: 0.75;
   font-weight: normal;
+  background: rgba(0,0,0,0.06);
+  padding: 1px 4px;
+  border-radius: 6px;
 }
+
+/* ==========================================================
+   Zone Editor (Správce zón a polic)
+   ========================================================== */
+.zone-editor-header-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.editor-appliance-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-md);
+  padding: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.editor-appliance-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.appliance-icon-large {
+  font-size: 1.8rem;
+}
+
+.editor-app-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-shelves-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-shelf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+}
+
+.shelf-reorder-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.btn-move-shelf {
+  width: 22px;
+  height: 18px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.6rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.btn-move-shelf:disabled {
+  opacity: 0.2;
+  cursor: default;
+}
+
+.comp-icon-preview {
+  font-size: 1.2rem;
+}
+
+.shelf-info-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 180px;
+}
+
+.shelf-info-edit input {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.shelf-options-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.shelf-options-wrap select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
 
