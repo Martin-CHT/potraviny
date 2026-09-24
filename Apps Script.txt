@@ -1,0 +1,185 @@
+/**
+ * Potraviny — Backend skript pro Google Sheets
+ * Umožňuje synchronizaci zásob a přihlašování domácností pomocí přihlašovací fráze.
+ */
+
+function doGet(e) {
+  try {
+    const params = e.parameter || {};
+    const action = params.action || 'download';
+    const passphrase = (params.passphrase || '').trim().toLowerCase();
+    
+    if (action === 'ping') {
+      return responseJSON({ status: 'ok', time: new Date().toISOString() });
+    }
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    
+    // Načtení dat pro danou přihlašovací frázi (nebo výchozí tabulku)
+    const sheetName = passphrase ? 'Zasoby_' + sanitizeSheetName(passphrase) : 'Potraviny';
+    let sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet) {
+      // Pokud list pro danou frázi ještě neexistuje, vrátíme prázdné pole
+      return responseJSON({ status: 'success', items: [], settings: {}, history: [] });
+    }
+    
+    const values = sheet.getDataRange().getValues();
+    const items = parseSheetToItems(values);
+    
+    // Načtení nastavení
+    const settingsSheet = ss.getSheetByName('Nastaveni_' + sanitizeSheetName(passphrase)) || ss.getSheetByName('Nastaveni');
+    let settings = {};
+    if (settingsSheet) {
+      const sVals = settingsSheet.getDataRange().getValues();
+      for (let i = 1; i < sVals.length; i++) {
+        if (sVals[i][0]) {
+          try {
+            settings[sVals[i][0]] = JSON.parse(sVals[i][1]);
+          } catch(err) {
+            settings[sVals[i][0]] = sVals[i][1];
+          }
+        }
+      }
+    }
+    
+    return responseJSON({
+      status: 'success',
+      passphrase: passphrase,
+      items: items,
+      settings: settings,
+      count: items.length
+    });
+  } catch (err) {
+    return responseJSON({ status: 'error', message: err.toString() });
+  }
+}
+
+function doPost(e) {
+  try {
+    const rawData = e.postData ? e.postData.contents : '{}';
+    const payload = JSON.parse(rawData);
+    
+    const action = payload.action || 'save';
+    const passphrase = (payload.passphrase || '').trim().toLowerCase();
+    const items = payload.items || [];
+    const settings = payload.settings || {};
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheetName = passphrase ? 'Zasoby_' + sanitizeSheetName(passphrase) : 'Potraviny';
+    
+    let sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+    }
+    
+    // Vyčistit a zapsat položky
+    sheet.clear();
+    const rows = [
+      ['ID', 'Název', 'Kategorie', 'Umístění', 'Množství', 'Jednotka', 'Cena (Kč)', 'Čárový kód', 'Expirace', 'Nutriční hodnoty (kcal/tuk/sach/bíl/vlák/sůl)', 'Poznámky', 'Přidáno']
+    ];
+    
+    items.forEach(function(it) {
+      const expStr = (it.expirations || []).map(function(exp) {
+        return exp.date + ' (' + (exp.type === 'minimalni_trvanlivost' ? 'MT' : 'SD') + ')';
+      }).join('; ');
+      
+      const nutStr = it.nutrition ? JSON.stringify(it.nutrition) : '';
+      
+      rows.push([
+        it.id || '',
+        it.name || '',
+        it.category || '',
+        it.location || '',
+        it.quantity || 1,
+        it.unit || 'ks',
+        it.price || '',
+        it.barcode || '',
+        expStr,
+        nutStr,
+        it.notes || '',
+        it.addedDate || new Date().toISOString()
+      ]);
+    });
+    
+    sheet.getRange(1, 1, rows.length, rows[0].length).setValues(rows);
+    
+    // Naformátovat hlavičku
+    sheet.getRange(1, 1, 1, rows[0].length)
+      .setFontWeight('bold')
+      .setBackground('#1a73e8')
+      .setFontColor('#ffffff');
+    sheet.autoResizeColumns(1, rows[0].length);
+    
+    // Uložit nastavení
+    if (Object.keys(settings).length > 0) {
+      const setSheetName = passphrase ? 'Nastaveni_' + sanitizeSheetName(passphrase) : 'Nastaveni';
+      let setSheet = ss.getSheetByName(setSheetName);
+      if (!setSheet) setSheet = ss.insertSheet(setSheetName);
+      setSheet.clear();
+      
+      const setRows = [['Klíč', 'Hodnota']];
+      for (let k in settings) {
+        setRows.push([k, JSON.stringify(settings[k])]);
+      }
+      setSheet.getRange(1, 1, setRows.length, 2).setValues(setRows);
+    }
+    
+    return responseJSON({ status: 'success', message: 'Uloženo ' + items.length + ' položek.', count: items.length });
+  } catch (err) {
+    return responseJSON({ status: 'error', message: err.toString() });
+  }
+}
+
+function parseSheetToItems(values) {
+  if (!values || values.length < 2) return [];
+  const rows = values.slice(1);
+  
+  return rows.map(function(row) {
+    const expirations = [];
+    if (row[8]) {
+      const parts = String(row[8]).split(';');
+      parts.forEach(function(p) {
+        const m = p.trim().match(/^([\d-]+)/);
+        if (m) {
+          expirations.push({
+            id: Utilities.getUuid(),
+            date: m[1],
+            type: p.includes('MT') ? 'minimalni_trvanlivost' : 'spotrebujte_do',
+            quantity: 1,
+            aiPredicted: false
+          });
+        }
+      });
+    }
+    
+    let nutrition = null;
+    if (row[9]) {
+      try { nutrition = JSON.parse(row[9]); } catch(e) {}
+    }
+    
+    return {
+      id: String(row[0]) || Utilities.getUuid(),
+      name: String(row[1] || 'Potravina'),
+      category: String(row[2] || 'ostatni'),
+      location: String(row[3] || 'spiz'),
+      quantity: parseFloat(row[4]) || 1,
+      unit: String(row[5] || 'ks'),
+      price: parseFloat(row[6]) || null,
+      barcode: String(row[7] || ''),
+      expirations: expirations,
+      nutrition: nutrition,
+      notes: String(row[10] || ''),
+      addedDate: String(row[11] || new Date().toISOString())
+    };
+  });
+}
+
+function sanitizeSheetName(name) {
+  return String(name).replace(/[^\w\d_\-]/gi, '_').substring(0, 30);
+}
+
+function responseJSON(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
