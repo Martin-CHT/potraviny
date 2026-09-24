@@ -237,6 +237,30 @@ App.Sync = {
     }
   },
 
+  // Zkopírování rychlého odkazu pro další zařízení
+  async shareLoginLink() {
+    const passphrase = (document.getElementById('input-passphrase')?.value || '').trim() || await App.DB.getSetting('householdPassphrase');
+    const scriptUrl = (document.getElementById('input-sheets-id')?.value || '').trim() || await App.DB.getSetting('googleSheetsId');
+
+    if (!passphrase) {
+      if (App.Main) App.Main.showToast('Nejprve zadejte přihlašovací frázi domácnosti.', 'warning', 3500);
+      return;
+    }
+
+    const shareUrl = `${window.location.origin}${window.location.pathname}?sync=${encodeURIComponent(passphrase)}${scriptUrl ? `&url=${encodeURIComponent(scriptUrl)}` : ''}`;
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        if (App.Main) App.Main.showToast('Přihlašovací odkaz zkopírován do schránky! Otevřete jej na mobilu/PC a vše se nastaví automaticky.', 'success', 4500);
+      } else {
+        prompt('Zkopírujte si tento přihlašovací odkaz pro další zařízení:', shareUrl);
+      }
+    } catch (e) {
+      prompt('Zkopírujte si tento přihlašovací odkaz:', shareUrl);
+    }
+  },
+
   async updatePassphraseUI() {
     const badge = document.getElementById('passphrase-status-badge');
     const disconnectBtn = document.getElementById('btn-passphrase-disconnect');
@@ -264,10 +288,12 @@ App.Sync = {
     const btnLogin = document.getElementById('btn-passphrase-login');
     const btnSave = document.getElementById('btn-passphrase-save');
     const btnDisconnect = document.getElementById('btn-passphrase-disconnect');
+    const btnShare = document.getElementById('btn-passphrase-share');
     
     if (btnLogin) btnLogin.addEventListener('click', () => this.loginWithPassphrase());
     if (btnSave) btnSave.addEventListener('click', () => this.saveToPassphrase());
     if (btnDisconnect) btnDisconnect.addEventListener('click', () => this.disconnectPassphrase());
+    if (btnShare) btnShare.addEventListener('click', () => this.shareLoginLink());
 
     const btnUpload = document.getElementById('btn-sync-upload');
     const btnDownload = document.getElementById('btn-sync-download');

@@ -62,6 +62,18 @@ App.Main = {
         if (App.Notifications) App.Notifications.updateNotificationBadge();
       });
 
+      // Zkontrolovat URL parametry pro automatické přihlášení k synchronizaci (?sync=fráze&url=...)
+      try {
+        const urlParams = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, '?'));
+        const syncPass = urlParams.get('sync') || urlParams.get('passphrase');
+        const syncUrl = urlParams.get('url') || urlParams.get('script');
+        if (syncPass && App.Sync) {
+          setTimeout(() => {
+            App.Sync.loginWithPassphrase(syncPass, syncUrl);
+          }, 400);
+        }
+      } catch (e) {}
+
     } catch (error) {
       console.error("Initialization error: ", error);
       this.showToast('Chyba při načítání aplikace: ' + error.message, 'error');
@@ -630,10 +642,37 @@ App.Main = {
   },
 
   applySettings(settings) {
+    if (!settings) return;
+
     if (settings.darkMode) {
       document.body.classList.add('dark-mode');
     } else {
       document.body.classList.remove('dark-mode');
+    }
+
+    const setVal = (id, val) => {
+      const el = document.getElementById(id);
+      if (el && val !== undefined && val !== null) el.value = val;
+    };
+    const setChecked = (id, checked) => {
+      const el = document.getElementById(id);
+      if (el && checked !== undefined && checked !== null) el.checked = !!checked;
+    };
+
+    setVal('input-ai-api-key', settings.aiApiKey || settings['input-ai-api-key']);
+    setVal('input-sheets-id', settings.googleSheetsId || settings['input-sheets-id']);
+    setVal('input-sheets-api-key', settings.googleSheetsApiKey || settings['input-sheets-api-key']);
+    setVal('input-passphrase', settings.householdPassphrase || settings['input-passphrase']);
+    setVal('setting-exp-days', settings.expirationWarningDays || settings['setting-exp-days']);
+
+    setChecked('setting-darkmode', settings.darkMode);
+    setChecked('setting-waste', settings.wasteTrackerEnabled);
+    setChecked('setting-notifications', settings.pushNotificationsEnabled);
+    setChecked('toggle-auto-prices', settings.autoPricesEnabled);
+    setChecked('toggle-default-view', settings.defaultView === 'list');
+
+    if (App.Sync && typeof App.Sync.updatePassphraseUI === 'function') {
+      App.Sync.updatePassphraseUI();
     }
   },
 
