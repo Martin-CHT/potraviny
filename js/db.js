@@ -3,7 +3,7 @@ window.App = window.App || {};
 App.DB = {
   db: null,
   dbName: 'potraviny-db',
-  dbVersion: 1,
+  dbVersion: 2,
 
   defaultSettings: {
     wasteTrackerEnabled: true,
@@ -48,85 +48,145 @@ App.DB = {
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'key' });
         }
+
+        if (!db.objectStoreNames.contains('shopping_list')) {
+          const shoppingStore = db.createObjectStore('shopping_list', { keyPath: 'id' });
+          shoppingStore.createIndex('category', 'category', { unique: false });
+          shoppingStore.createIndex('checked', 'checked', { unique: false });
+        }
       };
     });
   },
 
   async getAll(storeName) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.getAll();
+      if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+        return resolve([]);
+      }
+      try {
+        const transaction = this.db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result || []);
+        request.onerror = () => reject(request.error);
+      } catch (e) {
+        console.warn(`Store ${storeName} read error:`, e);
+        resolve([]);
+      }
     });
   },
 
   async get(storeName, id) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.get(id);
+      if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+        return resolve(null);
+      }
+      try {
+        const transaction = this.db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.get(id);
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      } catch (e) {
+        console.warn(`Store ${storeName} get error:`, e);
+        resolve(null);
+      }
     });
   },
 
   async add(storeName, record) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.add(record);
+      if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+        return reject(new Error(`Store ${storeName} does not exist`));
+      }
+      try {
+        const transaction = this.db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.add(record);
 
-      request.onsuccess = () => resolve(record);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(record);
+        request.onerror = () => reject(request.error);
+      } catch (e) {
+        reject(e);
+      }
     });
   },
 
   async put(storeName, record) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.put(record);
+      if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+        return reject(new Error(`Store ${storeName} does not exist`));
+      }
+      try {
+        const transaction = this.db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.put(record);
 
-      request.onsuccess = () => resolve(record);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(record);
+        request.onerror = () => reject(request.error);
+      } catch (e) {
+        reject(e);
+      }
     });
   },
 
   async delete(storeName, id) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.delete(id);
+      if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+        return resolve(id);
+      }
+      try {
+        const transaction = this.db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.delete(id);
 
-      request.onsuccess = () => resolve(id);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(id);
+        request.onerror = () => reject(request.error);
+      } catch (e) {
+        console.warn(`Store ${storeName} delete error:`, e);
+        resolve(id);
+      }
     });
   },
 
   async clear(storeName) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      const request = store.clear();
+      if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+        return resolve();
+      }
+      try {
+        const transaction = this.db.transaction([storeName], 'readwrite');
+        const store = transaction.objectStore(storeName);
+        const request = store.clear();
 
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      } catch (e) {
+        console.warn(`Store ${storeName} clear error:`, e);
+        resolve();
+      }
     });
   },
 
   async getByIndex(storeName, indexName, value) {
     return new Promise((resolve, reject) => {
-      const transaction = this.db.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const index = store.index(indexName);
-      const request = index.getAll(value);
+      if (!this.db || !this.db.objectStoreNames.contains(storeName)) {
+        return resolve([]);
+      }
+      try {
+        const transaction = this.db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const index = store.index(indexName);
+        const request = index.getAll(value);
 
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      } catch (e) {
+        console.warn(`Store ${storeName} getByIndex error:`, e);
+        resolve([]);
+      }
     });
   },
 
@@ -152,11 +212,13 @@ App.DB = {
     const items = await this.getAll('items');
     const history = await this.getAll('history');
     const settings = await this.getAll('settings');
+    const shopping_list = await this.getAll('shopping_list');
     
     return JSON.stringify({
       items,
       history,
-      settings
+      settings,
+      shopping_list
     });
   },
 
@@ -167,6 +229,7 @@ App.DB = {
       await this.clear('items');
       await this.clear('history');
       await this.clear('settings');
+      await this.clear('shopping_list');
       
       if (data.items) {
         for (const item of data.items) {
@@ -181,6 +244,11 @@ App.DB = {
       if (data.settings) {
         for (const setting of data.settings) {
           await this.put('settings', setting);
+        }
+      }
+      if (data.shopping_list) {
+        for (const item of data.shopping_list) {
+          await this.put('shopping_list', item);
         }
       }
       return true;
