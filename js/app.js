@@ -393,24 +393,31 @@ App.Main = {
         const id = document.getElementById('item-id').value;
         const expirations = this.collectExpirationData();
 
+        const parseNum = (id, fallback = null) => {
+          const el = document.getElementById(id);
+          if (!el || el.value === '' || el.value === null || el.value === undefined) return fallback;
+          const n = parseFloat(el.value.toString().replace(',', '.'));
+          return isNaN(n) ? fallback : n;
+        };
+
         const itemData = {
           name: name,
           category: document.getElementById('item-category').value,
           location: document.getElementById('item-location').value,
-          quantity: parseFloat(document.getElementById('item-quantity').value) || 1,
+          quantity: parseNum('item-quantity', 1),
           unit: document.getElementById('item-unit').value,
           barcode: document.getElementById('item-barcode').value || '',
           notes: document.getElementById('item-notes').value || '',
           expirations: expirations,
-          price: document.getElementById('item-price').value ? parseFloat(document.getElementById('item-price').value) : null,
+          price: parseNum('item-price', null),
           priceManuallySet: document.getElementById('input-price-manual') ? document.getElementById('input-price-manual').checked : false,
           nutrition: {
-            energy: document.getElementById('input-nut-energy')?.value || null,
-            fat: document.getElementById('input-nut-fat')?.value || null,
-            carbs: document.getElementById('input-nut-carbs')?.value || null,
-            protein: document.getElementById('input-nut-protein')?.value || null,
-            fiber: document.getElementById('input-nut-fiber')?.value || null,
-            salt: document.getElementById('input-nut-salt')?.value || null
+            energy: parseNum('input-nut-energy'),
+            fat: parseNum('input-nut-fat'),
+            carbs: parseNum('input-nut-carbs'),
+            protein: parseNum('input-nut-protein'),
+            fiber: parseNum('input-nut-fiber'),
+            salt: parseNum('input-nut-salt')
           }
         };
 
@@ -470,7 +477,7 @@ App.Main = {
     row.innerHTML = `
       <input type="hidden" class="exp-id" value="${id}">
       <input type="date" class="exp-date flex-1" value="${date}" required style="padding: 8px; border: 1px solid var(--border); border-radius: 6px;">
-      <input type="number" class="exp-qty" value="${qty}" min="0.1" step="0.5" style="width: 60px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 6px; text-align: center;">
+      <input type="number" class="exp-qty" value="${qty}" min="0.01" step="any" style="width: 60px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 6px; text-align: center;">
       <select class="exp-type" style="padding: 8px 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem;">
         <option value="spotrebujte_do" ${type === 'spotrebujte_do' ? 'selected' : ''}>Spotřebujte do</option>
         <option value="minimalni_trvanlivost" ${type === 'minimalni_trvanlivost' ? 'selected' : ''}>Min. trvanlivost</option>
@@ -502,12 +509,14 @@ App.Main = {
     const expirations = [];
     rows.forEach(row => {
       const dateVal = row.querySelector('.exp-date')?.value;
+      const rawQty = row.querySelector('.exp-qty')?.value;
+      const parsedQty = rawQty ? parseFloat(rawQty.toString().replace(',', '.')) : 1;
       if (dateVal) {
         expirations.push({
           id: row.querySelector('.exp-id')?.value || crypto.randomUUID(),
           date: dateVal,
           type: row.querySelector('.exp-type')?.value || 'spotrebujte_do',
-          quantity: parseFloat(row.querySelector('.exp-qty')?.value) || 1,
+          quantity: isNaN(parsedQty) ? 1 : parsedQty,
           aiPredicted: false
         });
       }
@@ -539,6 +548,7 @@ App.Main = {
           }
           
           App.Main.showToast('Nastavení uloženo', 'success', 1500);
+          window.dispatchEvent(new Event('app:settings-updated'));
         });
       }
     };

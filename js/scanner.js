@@ -264,41 +264,162 @@ App.Scanner = {
     });
   },
   
-  async scanReceipt(imageFile) {
+  // Zpracování PDF účtenky (přímá extrakce textu nebo render do canvasu pro OCR)
+  async extractTextFromPDF(file) {
+    if (typeof pdfjsLib === 'undefined') {
+      throw new Error('PDF.js knihovna není načtena.');
+    }
+    const arrayBuffer = await file.arrayBuffer();
+    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+    const pdf = await loadingTask.promise;
+    let fullText = '';
+    
+    // 1. Zkusit nativní extrakci textu ze všech stránek
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+
+    // Pokud PDF obsahuje čitelný text (digitální účtenka z Lidlu, Kauflandu, Košíku, Rohlíku...)
+    if (fullText.trim().length > 30) {
+      return { text: fullText, isDirectText: true };
+    }
+
+    // 2. Pokud je to naskenované PDF bez textu, vykreslit 1. stránku do canvasu pro OCR
+    const page = await pdf.getPage(1);
+    const viewport = page.getViewport({ scale: 2.0 });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+    
+    return { canvas: canvas, isDirectText: false };
+  },
+
+  // Předzpracování obrázku pro maximální OCR přesnost
+  async preprocessImageForOCR(imageSource) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        const maxDim = 2200;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const imgData = ctx.getImageData(0, 0, width, height);
+        const data = imgData.data;
+
+        // Grayscale a adaptivní kontrast
+        for (let i = 0; i < data.length; i += 4) {
+          const avg = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+          // Zvýraznění textu účtenky
+          const val = avg < 145 ? Math.max(0, avg * 0.7) : Math.min(255, avg * 1.2);
+          data[i] = val;
+          data[i + 1] = val;
+          data[i + 2] = val;
+        }
+        ctx.putImageData(imgData, 0, 0);
+        resolve(canvas);
+      };
+      img.onerror = () => resolve(imageSource);
+
+      if (imageSource instanceof Blob || imageSource instanceof File) {
+        img.src = URL.createObjectURL(imageSource);
+      } else if (typeof imageSource === 'string') {
+        img.src = imageSource;
+      } else {
+        resolve(imageSource);
+      }
+    });
+  },
+
+  async scanReceipt(file) {
     const processingDiv = document.getElementById('receipt-processing');
+    const statusText = document.getElementById('receipt-processing-status');
     const resultsDiv = document.getElementById('receipt-results');
+    
     if (processingDiv) processingDiv.classList.remove('hidden');
+    if (statusText) statusText.textContent = 'Čtu účtenku...';
     if (resultsDiv) resultsDiv.innerHTML = '';
 
     try {
-      if (typeof Tesseract === 'undefined') {
-        throw new Error('Tesseract OCR knihovna není načtena.');
+      let text = '';
+      const isPDF = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+      if (isPDF) {
+        if (statusText) statusText.textContent = 'Analyzuji PDF soubor...';
+        const pdfResult = await this.extractTextFromPDF(file);
+        if (pdfResult.isDirectText) {
+          text = pdfResult.text;
+        } else if (pdfResult.canvas) {
+          if (statusText) statusText.textContent = 'Rozpoznávám text z PDF účtenky (OCR)...';
+          if (typeof Tesseract === 'undefined') throw new Error('Tesseract OCR není načten.');
+          const worker = await Tesseract.createWorker(['ces', 'eng']);
+          const { data: { text: ocrText } } = await worker.recognize(pdfResult.canvas);
+          await worker.terminate();
+          text = ocrText;
+        }
+      } else {
+        if (statusText) statusText.textContent = 'Optimalizuji obrázek a provádím OCR...';
+        if (typeof Tesseract === 'undefined') throw new Error('Tesseract OCR není načten.');
+        
+        const preprocessed = await this.preprocessImageForOCR(file);
+        const worker = await Tesseract.createWorker(['ces', 'eng']);
+        const { data: { text: ocrText } } = await worker.recognize(preprocessed);
+        await worker.terminate();
+        text = ocrText;
       }
 
-      const worker = await Tesseract.createWorker('ces');
-      const { data: { text } } = await worker.recognize(imageFile);
-      await worker.terminate();
-      
+      if (statusText) statusText.textContent = 'Kategorizuji rozpoznané položky...';
       const items = await (App.AI ? App.AI.parseReceiptText(text) : []);
+      
       if (processingDiv) processingDiv.classList.add('hidden');
       
       if (resultsDiv) {
         if (items.length === 0) {
-          resultsDiv.innerHTML = '<p style="text-align:center; padding: 16px;">Na účtence nebyly rozpoznány žádné položky. Zkuste prosím fotku s lepším osvětlením.</p>';
+          resultsDiv.innerHTML = `
+            <div style="background: var(--surface); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-top: 16px; text-align: center;">
+              <p>Na účtence nebyly automaticky rozpoznány položky.</p>
+              <p class="text-small text-muted">Zkuste nahrát fotografii s lepším osvětlením, digitální PDF nebo zadejte položky hlasem či čárovým kódem.</p>
+            </div>
+          `;
           return;
         }
 
         resultsDiv.innerHTML = `
           <div style="background: var(--surface); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-top: 16px;">
-            <h4 style="margin-bottom: 12px;">Rozpoznané položky z účtenky (${items.length}):</h4>
-            <div id="receipt-items-checklist" style="display: flex; flex-direction: column; gap: 8px; max-height: 250px; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h4 style="margin: 0;">Rozpoznané položky z účtenky (${items.length}):</h4>
+              <button type="button" id="btn-toggle-all-receipt" class="btn-text text-small">Odznačit vše</button>
+            </div>
+            <div id="receipt-items-checklist" style="display: flex; flex-direction: column; gap: 8px; max-height: 280px; overflow-y: auto;">
               ${items.map((it, i) => `
-                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-bottom: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; border-bottom: 1px solid var(--border); background: var(--background); border-radius: 6px;">
                   <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; flex: 1;">
                     <input type="checkbox" checked data-idx="${i}" class="receipt-item-cb">
-                    <span><strong>${it.name}</strong> (${it.quantity} ${it.unit})</span>
+                    <span>
+                      <strong>${it.name}</strong> 
+                      <span class="text-muted" style="font-size: 0.85rem;">(${it.quantity} ${it.unit}) • ${App.Items?.getLocationLabel(it.location)}</span>
+                    </span>
                   </label>
-                  <span style="font-size: 0.85rem; color: var(--text-secondary);">${it.price ? it.price + ' Kč' : ''}</span>
+                  <span style="font-size: 0.9rem; font-weight: bold; color: var(--primary);">${it.price ? it.price.toFixed(2) + ' Kč' : ''}</span>
                 </div>
               `).join('')}
             </div>
@@ -307,6 +428,13 @@ App.Scanner = {
             </div>
           </div>
         `;
+
+        document.getElementById('btn-toggle-all-receipt')?.addEventListener('click', (e) => {
+          const cbs = document.querySelectorAll('.receipt-item-cb');
+          const allChecked = Array.from(cbs).every(c => c.checked);
+          cbs.forEach(c => c.checked = !allChecked);
+          e.target.textContent = allChecked ? 'Označit vše' : 'Odznačit vše';
+        });
 
         document.getElementById('btn-confirm-receipt-items')?.addEventListener('click', async () => {
           const checkboxes = document.querySelectorAll('.receipt-item-cb:checked');
@@ -327,9 +455,9 @@ App.Scanner = {
         });
       }
     } catch (e) {
-      console.error('Receipt OCR error:', e);
+      console.error('Receipt processing error:', e);
       if (processingDiv) processingDiv.classList.add('hidden');
-      if (App.Main) App.Main.showToast('Chyba při čtení účtenky: ' + e.message, 'error', 3000);
+      if (App.Main) App.Main.showToast('Chyba při zpracování účtenky: ' + e.message, 'error', 3500);
     }
   },
   

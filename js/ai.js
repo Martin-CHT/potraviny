@@ -643,18 +643,20 @@ Text k analýze: "${text}"`;
   async parseReceiptText(ocrText) {
     if (!ocrText || !ocrText.trim()) return [];
 
-    // 1. Zkusit online AI
-    const prompt = `Zanalyzuj tento text z české nákupní účtenky. Extrahuj z něj jednotlivé zakoupené položky jako JSON pole objektů.
-Ignoruj hlavičky obchodu, součty, DPH, zálohy, karty.
-Objekty mají klíče:
-- name: string (vyčištěný čitelný název produktu v češtině, např. "Máslo Jihočeské 250g")
-- quantity: number (počet kusů nebo hmotnost, výchozí 1)
+    // 1. Zkusit online AI pokud je nastaven API klíč
+    const prompt = `Zanalyzuj tento text z české nákupní účtenky. Extrahuj z něj POUZE zakoupené položky (potraviny/zboží) jako JSON pole objektů.
+Ignoruj hlavičky obchodu, součty, DPH, zálohy, karty, body, slevové součty.
+Pokud je u položky řádek s množstvím a násobkem (např. '2 * 9,90  19,80' nebo '0,450 kg * 49,90'), spoj to se správnou položkou!
+
+Objekty v JSON poli mají klíče:
+- name: string (vyčištěný čitelný název produktu v češtině, např. "Kobliha meruňková 65g", "Oreo Brownie 154g", "DrWitt RELAX 0,75l", "Korunní 1,5l")
+- quantity: number (počet kusů nebo hmotnost, např. 2 nebo 0.45)
 - unit: string ('ks' | 'kg' | 'g' | 'l' | 'ml' | 'baleni')
-- price: number (cena v Kč, např. 49.90)
+- price: number (celková cena v Kč, např. 19.80)
 - category: string ('mlecne' | 'maso' | 'ovoce_zelenina' | 'pecivo' | 'napoje' | 'mrazene' | 'konzervy' | 'koreni' | 'sladkosti' | 'ostatni')
 - location: string ('lednice' | 'mrazak' | 'spiz' | 'suplik' | 'skrin' | 'police' | 'ostatni')
 
-Vrať POUZE JSON pole. Účtenka:
+Vrať POUZE validní JSON pole. Účtenka k analýze:
 ${ocrText}`;
 
     const aiRes = await this.queryAI(prompt);
@@ -680,52 +682,167 @@ ${ocrText}`;
           });
         }
       } catch (e) {
-        console.warn('Failed to parse AI receipt JSON:', e);
+        console.warn('Failed to parse AI receipt JSON, falling back to heuristic parser:', e);
       }
     }
 
-    // 2. Offline parser účtenek
-    const lines = ocrText.split('\n');
+    // 2. Pokročilý Offline pravidlový parser pro české účtenky (Kaufland, Lidl, Albert, Tesco, Billa...)
+    return this.parseReceiptTextOffline(ocrText);
+  },
+
+  // Offline pravidlový analyzátor účtenek
+  parseReceiptTextOffline(ocrText) {
+    const rawLines = ocrText.split('\n');
     const items = [];
-    const ignoreKeywords = ['celkem', 'součet', 'dph', 'platba', 'karta', 'hotovost', 'vráceno', 'děkujeme', 'ičo', 'dič', 'prodejna', 'sleva', 'akce', 'body', 'club'];
 
-    for (let line of lines) {
-      const l = line.trim();
-      if (l.length < 3) continue;
-      const lower = l.toLowerCase();
-      if (ignoreKeywords.some(k => lower.includes(k))) continue;
+    // Klíčová slova hlavičky k ignorování
+    const headerKeywords = [
+      'kaufland', 'lidl', 'billa', 'albert', 'tesco', 'penny', 'coop', 'globus', 'rohlik', 'kosik',
+      'česká republika', 'v.o.s', 's.r.o', 'a.s', 'ič', 'dič', 'prodejna', 'bělohorská', 'kocandě',
+      'cena czk', 'cena eur', 'doklad', 'provozovna', 'pokladna', 'spojení', 'datum', 'čas', '******', '======'
+    ];
 
-      // Zkusit najít cenu na konci řádku (např. "MLÉKO POLOTUČNÉ 1L   23,90" nebo "19.90 A")
-      const priceMatch = l.match(/(\d+[.,]\d{2})\s*(?:Kč|czk|[A-D])?$/i);
-      let price = null;
-      let nameStr = l;
+    // Klíčová slova ukončující výpis položek (součty, platby, DPH)
+    const stopKeywords = [
+      'součet', 'soucet', 'celkem', 'platba', 'karta', 'hotovost', 'vráceno', 'vraceno',
+      'daň %', 'dan %', 'brutto', 'netto', 'rekapitulace', 'kaufland card', 'lidl plus',
+      'clubcard', 'děkujeme', 'dekujeme', 'debit mastercard', 'visa', 'doklad zákazníka'
+    ];
 
-      if (priceMatch) {
-        price = parseFloat(priceMatch[1].replace(',', '.'));
-        nameStr = l.replace(priceMatch[0], '').trim();
+    // Slovníček pro rozšíření zkratek z pokladních systémů
+    const expandAbbr = (str) => {
+      return str
+        .replace(/\bnesol\.(?:\s*|$)/gi, 'nesolené ')
+        .replace(/\bmeruň\.(?:\s*|$)/gi, 'meruňková ')
+        .replace(/\bochuc(?:\b|1)/gi, 'ochucená ')
+        .replace(/\bpolot\.(?:\s*|$)/gi, 'polotučné ')
+        .replace(/\bplnot\.(?:\s*|$)/gi, 'plnotučné ')
+        .replace(/\bčerstv\.(?:\s*|$)/gi, 'čerstvé ')
+        .replace(/\btrvanl\.(?:\s*|$)/gi, 'trvanlivé ')
+        .replace(/1,51PET/gi, '1.5l PET')
+        .replace(/1,5lPET/gi, '1.5l PET')
+        .replace(/0,751\b/gi, '0.75l')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
+    let pendingItem = null;
+    let stopParsing = false;
+
+    for (let i = 0; i < rawLines.length; i++) {
+      if (stopParsing) break;
+
+      let line = rawLines[i].trim();
+      if (!line || line.length < 2) continue;
+
+      const lower = line.toLowerCase();
+
+      // Kontrola konce seznamu položek
+      if (stopKeywords.some(k => lower.includes(k))) {
+        if (pendingItem) {
+          items.push(pendingItem);
+          pendingItem = null;
+        }
+        stopParsing = true;
+        break;
       }
 
-      // Odstranit počáteční kódy či čísla položek
-      nameStr = nameStr.replace(/^\d+[\s\-_.]*/, '').trim();
-      if (nameStr.length < 2) continue;
+      // Kontrola hlavičky
+      if (headerKeywords.some(k => lower.includes(k))) {
+        continue;
+      }
 
-      // Normalizovat na čistý český název
-      const cleanName = this.normalizeToCzech(nameStr);
-      const category = this.classifyItem(cleanName);
-      const location = this.suggestLocation(cleanName, category);
-      const exp = this.predictExpiration(cleanName, category);
-      const nutrition = this.predictNutrition(cleanName, category);
+      // 1. Zkontrolovat řádek s násobkem množství (např. "2 * 9,90  19,80 F" nebo "0,450 kg * 49,90  22,45 B")
+      const multMatch = line.match(/^\s*(\d+(?:[.,]\d+)?)\s*(ks|kg|g|l|ml)?\s*[*xX]\s*(\d+[.,]\d{2})\s+(\d+[.,]\d{2})\s*(?:Kč|czk|[A-Za-z])?$/i);
+      if (multMatch) {
+        const qty = parseFloat(multMatch[1].replace(',', '.'));
+        const unit = multMatch[2] ? multMatch[2].toLowerCase() : 'ks';
+        const totalPrice = parseFloat(multMatch[4].replace(',', '.'));
 
-      items.push({
-        name: cleanName,
-        quantity: 1,
-        unit: 'ks',
-        price: price,
-        category: category,
-        location: location,
-        expirations: [exp],
-        nutrition: nutrition
-      });
+        if (pendingItem) {
+          pendingItem.quantity = qty;
+          pendingItem.unit = unit;
+          pendingItem.price = totalPrice;
+          items.push(pendingItem);
+          pendingItem = null;
+        }
+        continue;
+      }
+
+      // 2. Zkontrolovat řádek položky s cenou na konci (např. "Oreo Brownie 154g  47,90 F" nebo "DrWitt RELAX 0,75l 17,90 C")
+      const itemWithPriceMatch = line.match(/^(.*?)\s+(\d+[.,]\d{2})\s*(?:Kč|czk|[A-Za-z])?$/i);
+      if (itemWithPriceMatch) {
+        if (pendingItem) {
+          items.push(pendingItem);
+          pendingItem = null;
+        }
+
+        let namePart = itemWithPriceMatch[1].trim();
+        const priceVal = parseFloat(itemWithPriceMatch[2].replace(',', '.'));
+
+        // Ignorovat řádky se slevami jako novou položku (např. "Sleva akce -10,00")
+        if (/^(sleva|akce|bonus|kupon|odpočet|odpocet)\b/i.test(namePart)) {
+          continue;
+        }
+
+        // Odstranit počáteční čísla položek / kódů
+        namePart = namePart.replace(/^\d+[\s\-_.]+/, '').trim();
+        if (namePart.length < 2) continue;
+
+        namePart = expandAbbr(namePart);
+        const cleanName = this.normalizeToCzech(namePart);
+        const category = this.classifyItem(cleanName);
+        const location = this.suggestLocation(cleanName, category);
+        const exp = this.predictExpiration(cleanName, category);
+        const nutrition = this.predictNutrition(cleanName, category);
+
+        // Zjistit jednotku z názvu (např. 1,5l, 500g)
+        let unit = 'ks';
+        let qty = 1;
+
+        items.push({
+          name: cleanName,
+          quantity: qty,
+          unit: unit,
+          price: priceVal,
+          category: category,
+          location: location,
+          expirations: [exp],
+          nutrition: nutrition
+        });
+        continue;
+      }
+
+      // 3. Řádek bez ceny (může to být název vícedenní položky jako "Kobliha meruň.65g" s násobkem na dalším řádku)
+      if (pendingItem) {
+        items.push(pendingItem);
+        pendingItem = null;
+      }
+
+      let standaloneName = line.replace(/^\d+[\s\-_.]+/, '').trim();
+      if (standaloneName.length >= 3) {
+        standaloneName = expandAbbr(standaloneName);
+        const cleanName = this.normalizeToCzech(standaloneName);
+        const category = this.classifyItem(cleanName);
+        const location = this.suggestLocation(cleanName, category);
+        const exp = this.predictExpiration(cleanName, category);
+        const nutrition = this.predictNutrition(cleanName, category);
+
+        pendingItem = {
+          name: cleanName,
+          quantity: 1,
+          unit: 'ks',
+          price: null,
+          category: category,
+          location: location,
+          expirations: [exp],
+          nutrition: nutrition
+        };
+      }
+    }
+
+    if (pendingItem) {
+      items.push(pendingItem);
     }
 
     return items;

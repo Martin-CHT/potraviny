@@ -96,21 +96,21 @@ App.Sync = {
   },
 
   // Uložení všech dat a nastavení do Google Sheets pod danou přihlašovací frází
-  async saveToPassphrase() {
+  async saveToPassphrase(options = {}) {
+    const isSilent = typeof options === 'boolean' ? options : (options.silent || false);
     const passphrase = (document.getElementById('input-passphrase')?.value || '').trim() || await App.DB.getSetting('householdPassphrase');
     const scriptUrl = (document.getElementById('input-sheets-id')?.value || '').trim() || await App.DB.getSetting('googleSheetsId');
 
-    if (!passphrase) {
-      if (App.Main) App.Main.showToast('Zadejte prosím přihlašovací frázi domácnosti.', 'warning', 3500);
+    if (!passphrase || !scriptUrl) {
+      if (!isSilent) {
+        if (!passphrase && App.Main) App.Main.showToast('Zadejte prosím přihlašovací frázi domácnosti.', 'warning', 3500);
+        else if (!scriptUrl && App.Main) App.Main.showToast('Zadejte URL Google Apps Scriptu.', 'warning', 3500);
+      }
       return;
     }
 
-    if (!scriptUrl) {
-      if (App.Main) App.Main.showToast('Zadejte URL Google Apps Scriptu.', 'warning', 3500);
-      return;
-    }
-
-    if (App.Main) App.Main.showLoading();
+    if (!isSilent && App.Main) App.Main.showLoading();
+    this.updatePassphraseUI('syncing');
 
     try {
       const items = await App.DB.getAll('items') || [];
@@ -139,16 +139,33 @@ App.Sync = {
       this.lastSyncTime = new Date();
       await App.DB.setSetting('lastSyncTime', this.lastSyncTime.toISOString());
       
-      this.updatePassphraseUI();
+      this.updatePassphraseUI('idle');
       this.updateLastSyncUI();
 
-      if (App.Main) App.Main.showToast(`Data domácnosti "${passphrase}" byla uložena do Google Sheets.`, 'success', 3500);
+      if (!isSilent && App.Main) {
+        App.Main.showToast(`Data domácnosti "${passphrase}" byla uložena do cloudu.`, 'success', 3500);
+      }
     } catch (err) {
       console.error('Save to passphrase error:', err);
-      if (App.Main) App.Main.showToast('Chyba při ukládání: ' + err.message, 'error', 4500);
+      this.updatePassphraseUI('error');
+      if (!isSilent && App.Main) {
+        App.Main.showToast('Chyba při ukládání: ' + err.message, 'error', 4500);
+      }
     } finally {
-      if (App.Main) App.Main.hideLoading();
+      if (!isSilent && App.Main) App.Main.hideLoading();
     }
+  },
+
+  // Spuštění automatického tichého uložení do cloudu na pozadí
+  triggerAutoSync(delay = 1000) {
+    clearTimeout(this._autoSaveTimeout);
+    this._autoSaveTimeout = setTimeout(async () => {
+      const phrase = (document.getElementById('input-passphrase')?.value || '').trim() || await App.DB.getSetting('householdPassphrase');
+      const scriptUrl = (document.getElementById('input-sheets-id')?.value || '').trim() || await App.DB.getSetting('googleSheetsId');
+      if (phrase && scriptUrl) {
+        await this.saveToPassphrase({ silent: true });
+      }
+    }, delay);
   },
 
   // Odpojení od přihlašovací fráze
@@ -156,13 +173,13 @@ App.Sync = {
     await App.DB.setSetting('householdPassphrase', '');
     const passInput = document.getElementById('input-passphrase');
     if (passInput) passInput.value = '';
-    this.updatePassphraseUI();
+    this.updatePassphraseUI('idle');
     if (App.Main) App.Main.showToast('Odpojeno od domácnosti.', 'info', 2500);
   },
 
   // Starší / přímá synchronizace přes REST API
   async syncToSheets() {
-    return this.saveToPassphrase();
+    return this.saveToPassphrase({ silent: false });
   },
   
   async syncFromSheets() {
@@ -233,7 +250,7 @@ App.Sync = {
     if (!el) return;
     const time = await App.DB.getSetting('lastSyncTime');
     if (time) {
-      el.textContent = `Poslední synchronizace: ${new Date(time).toLocaleString('cs-CZ')}`;
+      el.textContent = `Poslední synchronizace: ${new Date(time).toLocaleString('cs-CZ')} (automaticky)`;
     }
   },
 
@@ -261,20 +278,24 @@ App.Sync = {
     }
   },
 
-  async updatePassphraseUI() {
+  async updatePassphraseUI(status = 'idle') {
     const badge = document.getElementById('passphrase-status-badge');
     const disconnectBtn = document.getElementById('btn-passphrase-disconnect');
     const passInput = document.getElementById('input-passphrase');
     const sheetsInput = document.getElementById('input-sheets-id');
 
-    const phrase = await App.DB.getSetting('householdPassphrase');
-    const scriptUrl = await App.DB.getSetting('googleSheetsId');
+    const phrase = (passInput && passInput.value ? passInput.value.trim() : null) || await App.DB.getSetting('householdPassphrase');
+    const scriptUrl = (sheetsInput && sheetsInput.value ? sheetsInput.value.trim() : null) || await App.DB.getSetting('googleSheetsId');
 
     if (passInput && phrase && !passInput.value) passInput.value = phrase;
     if (sheetsInput && scriptUrl && !sheetsInput.value) sheetsInput.value = scriptUrl;
 
     if (badge) {
-      if (phrase) {
+      if (status === 'syncing') {
+        badge.innerHTML = `🔄 <strong>Ukládám změny do cloudu...</strong>`;
+      } else if (status === 'error') {
+        badge.innerHTML = `⚠️ <span style="color:var(--danger)">Chyba automatického ukládání</span>`;
+      } else if (phrase) {
         badge.innerHTML = `🟢 <strong>Připojeno k domácnosti:</strong> <code style="background:var(--surface); padding:2px 6px; border-radius:4px;">${phrase}</code>`;
         if (disconnectBtn) disconnectBtn.classList.remove('hidden');
       } else {
@@ -285,22 +306,47 @@ App.Sync = {
   },
   
   setupSyncUI() {
-    const btnLogin = document.getElementById('btn-passphrase-login');
-    const btnSave = document.getElementById('btn-passphrase-save');
+    const passInput = document.getElementById('input-passphrase');
     const btnDisconnect = document.getElementById('btn-passphrase-disconnect');
-    const btnShare = document.getElementById('btn-passphrase-share');
     
-    if (btnLogin) btnLogin.addEventListener('click', () => this.loginWithPassphrase());
-    if (btnSave) btnSave.addEventListener('click', () => this.saveToPassphrase());
-    if (btnDisconnect) btnDisconnect.addEventListener('click', () => this.disconnectPassphrase());
-    if (btnShare) btnShare.addEventListener('click', () => this.shareLoginLink());
+    if (passInput) {
+      let passTimeout = null;
+      passInput.addEventListener('input', (e) => {
+        clearTimeout(passTimeout);
+        const phrase = e.target.value.trim();
+        if (phrase.length >= 3) {
+          passTimeout = setTimeout(() => {
+            this.loginWithPassphrase(phrase);
+          }, 800);
+        }
+      });
 
-    const btnUpload = document.getElementById('btn-sync-upload');
-    const btnDownload = document.getElementById('btn-sync-download');
-    if (btnUpload) btnUpload.addEventListener('click', () => this.saveToPassphrase());
-    if (btnDownload) btnDownload.addEventListener('click', () => this.loginWithPassphrase());
+      passInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          clearTimeout(passTimeout);
+          const phrase = passInput.value.trim();
+          if (phrase) {
+            passInput.blur();
+            this.loginWithPassphrase(phrase);
+          }
+        }
+      });
+    }
 
-    this.updatePassphraseUI();
+    if (btnDisconnect) {
+      btnDisconnect.addEventListener('click', () => this.disconnectPassphrase());
+    }
+
+    // Automatická synchronizace při jakékoliv změně položek i nastavení
+    window.addEventListener('app:items-updated', () => {
+      this.triggerAutoSync(1000);
+    });
+
+    window.addEventListener('app:settings-updated', () => {
+      this.triggerAutoSync(1000);
+    });
+
+    this.updatePassphraseUI('idle');
     this.updateLastSyncUI();
   }
 };

@@ -11,6 +11,12 @@
     <link rel="apple-touch-icon" href="icons/icon-512.svg">
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        if (typeof pdfjsLib !== 'undefined') {
+            pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+    </script>
 </head>
 <body>
 
@@ -111,13 +117,13 @@
 
             <div id="receipt-scan-area" class="scanner-area hidden">
                 <div class="receipt-actions">
-                    <label for="input-receipt-file" class="btn-primary btn-block">Vybrat fotku účtenky</label>
-                    <input type="file" id="input-receipt-file" accept="image/*" class="hidden">
-                    <button id="btn-capture-receipt" class="btn-secondary btn-block">Vyfotit účtenku</button>
+                    <label for="input-receipt-file" class="btn-primary btn-block">Vybrat fotku nebo PDF účtenky</label>
+                    <input type="file" id="input-receipt-file" accept="image/*,application/pdf,.pdf" class="hidden">
+                    <button id="btn-capture-receipt" class="btn-secondary btn-block">Vyfotit účtenku fotoaparátem</button>
                 </div>
                 <div id="receipt-processing" class="hidden">
                     <div class="spinner"></div>
-                    <p>Zpracovávám účtenku...</p>
+                    <p id="receipt-processing-status">Zpracovávám účtenku...</p>
                 </div>
                 <div id="receipt-results"></div>
             </div>
@@ -145,34 +151,35 @@
 
         <!-- View: Settings -->
         <section id="view-settings" class="view hidden">
-            <div class="settings-card">
+            <div class="settings-card highlight-card">
                 <h3>🔑 Domácnost & Přihlašovací fráze</h3>
                 <p class="text-small text-muted">
-                    Zadejte přihlašovací frázi Vaší domácnosti. Díky ní můžete aplikaci otevřít na mobilu, tabletu i PC bez nutnosti pokaždé znovu vyplňovat data, nastavení a API klíče.
+                    Zadejte přihlašovací frázi Vaší domácnosti. Jakmile ji vyplníte, systém sám automaticky načte a synchronizuje nastavení, API klíče i inventář ze serveru.
                 </p>
                 <div class="form-group">
-                    <label for="input-passphrase">Přihlašovací fráze (např. rodina-novakovi)</label>
-                    <input type="text" id="input-passphrase" placeholder="napr. rodina-novakovi">
+                    <label for="input-passphrase"><strong>Přihlašovací fráze</strong></label>
+                    <input type="text" id="input-passphrase" placeholder="Zadejte frázi (např. rodina-novakovi)..." style="font-size: 1.1rem; padding: 12px; font-weight: 500;">
                 </div>
-                <div class="form-group">
-                    <label for="input-sheets-id">Google Apps Script Web App URL / Sheets ID</label>
-                    <input type="text" id="input-sheets-id" placeholder="https://script.google.com/macros/s/.../exec">
-                    <small class="text-muted" style="display:block; margin-top:4px; font-size:0.75rem;">URL webové aplikace vytvořené v Google Sheets (podrobný návod je v README.md).</small>
-                </div>
-                <div class="form-group">
-                    <label for="input-sheets-api-key">Google API Key (volitelné pro přímé Google Sheets REST API)</label>
-                    <input type="password" id="input-sheets-api-key" placeholder="AIzaSy...">
-                </div>
-                <div class="sync-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button type="button" id="btn-passphrase-login" class="btn-primary flex-1">📥 Přihlásit se & Stáhnout data</button>
-                    <button type="button" id="btn-passphrase-save" class="btn-success flex-1">📤 Uložit data do cloudu</button>
-                </div>
-                <button type="button" id="btn-passphrase-share" class="btn-secondary btn-block mt-2">🔗 Zkopírovat rychlý přihlašovací odkaz (pro mobil / tablet)</button>
+                
                 <div id="passphrase-status" class="mt-2 text-small" style="padding: 10px 12px; background: var(--background); border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-                    <span id="passphrase-status-badge">⚪ Nepřihlášeno k žádné frázi</span>
-                    <button type="button" id="btn-passphrase-disconnect" class="btn-text text-small hidden" style="color: var(--danger); padding: 0;">Odpojit</button>
+                    <span id="passphrase-status-badge">⚪ Nepřihlášeno</span>
+                    <button type="button" id="btn-passphrase-disconnect" class="btn-text text-small hidden" style="color: var(--danger); padding: 0;">Odhlásit</button>
                 </div>
                 <p id="last-sync-time" class="text-small text-muted mt-1">Poslední synchronizace: Nikdy</p>
+
+                <details class="collapsible-section mt-3" style="font-size: 0.85rem;">
+                    <summary style="cursor: pointer; color: var(--text-secondary);">⚙️ Pokročilé nastavení serveru / URL</summary>
+                    <div class="mt-2">
+                        <div class="form-group">
+                            <label for="input-sheets-id">Google Apps Script Web App URL</label>
+                            <input type="text" id="input-sheets-id" placeholder="https://script.google.com/macros/s/.../exec">
+                        </div>
+                        <div class="form-group">
+                            <label for="input-sheets-api-key">Google API Key (volitelné pro přímé REST API)</label>
+                            <input type="password" id="input-sheets-api-key" placeholder="AIzaSy...">
+                        </div>
+                    </div>
+                </details>
             </div>
 
             <div class="settings-card">
@@ -340,7 +347,7 @@
                     <div class="form-row">
                         <div class="form-group flex-1">
                             <label for="item-quantity">Množství</label>
-                            <input type="number" id="item-quantity" value="1" min="0.01" step="0.01">
+                            <input type="number" id="item-quantity" value="1" min="0.001" step="any">
                         </div>
                         <div class="form-group flex-1">
                             <label for="item-unit">Jednotka</label>
@@ -363,7 +370,7 @@
 
                     <div class="form-group">
                         <label for="item-price">Cena (Kč)</label>
-                        <input type="number" id="item-price" step="0.01">
+                        <input type="number" id="item-price" min="0" step="any">
                         <div class="checkbox-group mt-1">
                             <input type="checkbox" id="input-price-manual">
                             <label for="input-price-manual">Ručně nastavená cena</label>
@@ -384,31 +391,31 @@
                     </div>
 
                     <details id="nutrition-section" class="collapsible-section">
-                        <summary>Nutriční hodnoty</summary>
+                        <summary>Nutriční hodnoty (na 100g / 100ml)</summary>
                         <div class="grid-2-col mt-2">
                             <div class="form-group">
-                                <label>Energie (kcal)</label>
-                                <input type="number" id="input-nut-energy">
+                                <label for="input-nut-energy">Energie (kcal)</label>
+                                <input type="number" id="input-nut-energy" min="0" step="any" placeholder="např. 250">
                             </div>
                             <div class="form-group">
-                                <label>Tuky (g)</label>
-                                <input type="number" id="input-nut-fat">
+                                <label for="input-nut-fat">Tuky (g)</label>
+                                <input type="number" id="input-nut-fat" min="0" step="any" placeholder="např. 3.5">
                             </div>
                             <div class="form-group">
-                                <label>Sacharidy (g)</label>
-                                <input type="number" id="input-nut-carbs">
+                                <label for="input-nut-carbs">Sacharidy (g)</label>
+                                <input type="number" id="input-nut-carbs" min="0" step="any" placeholder="např. 12.4">
                             </div>
                             <div class="form-group">
-                                <label>Bílkoviny (g)</label>
-                                <input type="number" id="input-nut-protein">
+                                <label for="input-nut-protein">Bílkoviny (g)</label>
+                                <input type="number" id="input-nut-protein" min="0" step="any" placeholder="např. 8.2">
                             </div>
                             <div class="form-group">
-                                <label>Vláknina (g)</label>
-                                <input type="number" id="input-nut-fiber">
+                                <label for="input-nut-fiber">Vláknina (g)</label>
+                                <input type="number" id="input-nut-fiber" min="0" step="any" placeholder="např. 1.8">
                             </div>
                             <div class="form-group">
-                                <label>Sůl (g)</label>
-                                <input type="number" id="input-nut-salt">
+                                <label for="input-nut-salt">Sůl (g)</label>
+                                <input type="number" id="input-nut-salt" min="0" step="any" placeholder="např. 0.05">
                             </div>
                         </div>
                     </details>
@@ -610,7 +617,7 @@
                     <div class="form-group mt-3">
                         <label for="consume-qty">Množství</label>
                         <div class="input-with-unit">
-                            <input type="number" id="consume-qty" value="1" min="0.01" step="0.01">
+                            <input type="number" id="consume-qty" value="1" min="0.001" step="any">
                             <span id="consume-item-unit" class="unit-addon"></span>
                         </div>
                     </div>
