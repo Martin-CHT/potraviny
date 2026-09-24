@@ -2,12 +2,30 @@ window.App = window.App || {};
 
 App.Main = {
   async init() {
+    // 1. Nejprve inicializovat UI navigaci, modály a ovládací prvky, aby rozhraní vždy reagovalo
+    try {
+      this.setupNavigation();
+      this.setupSearch();
+      this.setupFAB();
+      this.setupModals();
+      this.setupItemForm();
+      this.setupConsumeModal();
+    } catch (uiErr) {
+      console.error("UI setup error:", uiErr);
+    }
+
+    // 2. Inicializace databáze a nastavení
     try {
       await App.DB.init();
-      
       const settings = await App.DB.getAllSettings();
       this.applySettings(settings);
-      
+      this.setupSettings();
+    } catch (dbErr) {
+      console.error("DB init error:", dbErr);
+    }
+
+    // 3. Načtení modulů (izolovaně v try/catch)
+    try {
       if (App.Items && typeof App.Items.loadItems === 'function') {
         await App.Items.loadItems();
         App.Items.renderItems();
@@ -19,78 +37,109 @@ App.Main = {
           App.Items.setupBulkActionsUI();
         }
       }
+    } catch (e) {
+      console.error("Items module init error:", e);
+    }
 
+    try {
       if (App.Shopping && typeof App.Shopping.setupShoppingUI === 'function') {
         App.Shopping.setupShoppingUI();
         await App.Shopping.loadItems();
       }
+    } catch (e) {
+      console.error("Shopping module init error:", e);
+    }
 
+    try {
       if (App.Zones && typeof App.Zones.setupZonesUI === 'function') {
         App.Zones.setupZonesUI();
       }
+    } catch (e) {
+      console.error("Zones module init error:", e);
+    }
 
+    try {
       if (App.Scanner && typeof App.Scanner.setupScannerUI === 'function') {
         App.Scanner.setupScannerUI();
       }
+    } catch (e) {
+      console.error("Scanner module init error:", e);
+    }
 
+    try {
       if (App.Voice && typeof App.Voice.init === 'function') {
         App.Voice.init();
       }
+    } catch (e) {
+      console.error("Voice module init error:", e);
+    }
 
+    try {
       if (App.Recipes && typeof App.Recipes.setupRecipeUI === 'function') {
         App.Recipes.setupRecipeUI();
       }
+    } catch (e) {
+      console.error("Recipes module init error:", e);
+    }
 
+    try {
       if (App.Unpack && typeof App.Unpack.setupUnpackModal === 'function') {
         App.Unpack.setupUnpackModal();
       }
+    } catch (e) {
+      console.error("Unpack module init error:", e);
+    }
 
+    try {
       if (App.Waste && typeof App.Waste.setupWasteUI === 'function') {
         App.Waste.setupWasteUI();
       }
+    } catch (e) {
+      console.error("Waste module init error:", e);
+    }
 
+    try {
       if (App.Sync && typeof App.Sync.setupSyncUI === 'function') {
         App.Sync.setupSyncUI();
       }
+    } catch (e) {
+      console.error("Sync module init error:", e);
+    }
 
+    try {
       if (App.Prices && typeof App.Prices.setupPriceUI === 'function') {
         App.Prices.setupPriceUI();
       }
+    } catch (e) {
+      console.error("Prices module init error:", e);
+    }
 
+    try {
       if (App.Notifications && typeof App.Notifications.init === 'function') {
         await App.Notifications.init();
       }
-
-      this.setupNavigation();
-      this.setupSearch();
-      this.setupFAB();
-      this.setupModals();
-      this.setupItemForm();
-      this.setupSettings();
-      this.setupConsumeModal();
-      this.registerServiceWorker();
-
-      // Listen for items updates
-      window.addEventListener('app:items-updated', () => {
-        if (App.Notifications) App.Notifications.updateNotificationBadge();
-      });
-
-      // Zkontrolovat URL parametry pro automatické přihlášení k synchronizaci (?sync=fráze&url=...)
-      try {
-        const urlParams = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, '?'));
-        const syncPass = urlParams.get('sync') || urlParams.get('passphrase');
-        const syncUrl = urlParams.get('url') || urlParams.get('script');
-        if (syncPass && App.Sync) {
-          setTimeout(() => {
-            App.Sync.loginWithPassphrase(syncPass, syncUrl);
-          }, 400);
-        }
-      } catch (e) {}
-
-    } catch (error) {
-      console.error("Initialization error: ", error);
-      this.showToast('Chyba při načítání aplikace: ' + error.message, 'error');
+    } catch (e) {
+      console.error("Notifications module init error:", e);
     }
+
+    this.registerServiceWorker();
+
+    // Listen for items updates
+    window.addEventListener('app:items-updated', () => {
+      if (App.Notifications) App.Notifications.updateNotificationBadge();
+    });
+
+    // Zkontrolovat URL parametry pro automatické přihlášení k synchronizaci (?sync=fráze&url=...)
+    try {
+      const urlParams = new URLSearchParams(window.location.search || window.location.hash.replace(/^#/, '?'));
+      const syncPass = urlParams.get('sync') || urlParams.get('passphrase');
+      const syncUrl = urlParams.get('url') || urlParams.get('script');
+      if (syncPass && App.Sync) {
+        setTimeout(() => {
+          App.Sync.loginWithPassphrase(syncPass, syncUrl);
+        }, 400);
+      }
+    } catch (e) {}
   },
   
   navigate(viewId) {
