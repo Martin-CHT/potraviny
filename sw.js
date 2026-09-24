@@ -1,4 +1,4 @@
-const CACHE_NAME = 'potraviny-v4';
+const CACHE_NAME = 'potraviny-v6';
 
 const ASSETS_TO_CACHE = [
   './',

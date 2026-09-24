@@ -363,36 +363,73 @@
         <section id="view-chat" class="view hidden">
             <div class="chat-container">
                 <div class="chat-header-card">
-                    <div class="flex-row align-center justify-between">
-                        <div class="flex-row align-center gap-2">
-                            <span style="font-size: 1.8rem;">🤖</span>
-                            <div>
-                                <h2 style="margin:0; font-size:1.15rem;">AI Asistent zásob & Receptů</h2>
-                                <span class="text-small text-muted" id="chat-ai-status">V reálném čase zná vaše zásoby, expirace a nákupní lístek</span>
+                    <div class="chat-header-top">
+                        <div class="chat-header-identity">
+                            <div class="chat-bot-avatar">
+                                <span class="chat-bot-emoji">🤖</span>
+                                <span class="ai-live-beacon" title="AI aktivní a připraveno"></span>
+                            </div>
+                            <div class="chat-header-meta">
+                                <div class="chat-header-title-row">
+                                    <h2 class="chat-bot-title">AI Asistent & Šéfkuchař</h2>
+                                    <span class="chat-badge-online">ONLINE</span>
+                                </div>
+                                <div class="chat-status-text" id="chat-ai-status">
+                                    <span class="chat-status-dot"></span>
+                                    <span id="chat-status-inventory-summary">Načítám stav zásob...</span>
+                                </div>
                             </div>
                         </div>
-                        <button type="button" id="btn-chat-clear" class="btn-text text-small text-muted" title="Vymazat konverzaci">🗑️ Vymazat</button>
+                        <div class="chat-header-actions">
+                            <button type="button" id="btn-chat-clear" class="chat-header-action-btn" title="Vymazat konverzaci">
+                                <span class="chat-action-icon">🗑️</span>
+                                <span class="chat-action-label">Vyčistit</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- Quick Prompts Chips -->
-                    <div class="chat-quick-chips mt-3">
-                        <button type="button" class="quick-chip-btn" data-prompt="Co můžu uvařit z toho, co mám v lednici a spíži?">🍳 Co uvařit ze zásob?</button>
-                        <button type="button" class="quick-chip-btn" data-prompt="Kterým potravinám brzy končí spotřeba a co z nich uvařit?">⚠️ Co brzy expiruje?</button>
-                        <button type="button" class="quick-chip-btn" data-prompt="Co nám dochází a je potřeba dokoupit?">🛒 Co je potřeba dokoupit?</button>
-                        <button type="button" class="quick-chip-btn" data-prompt="Kde mám uložené máslo, mléko a sýry?">📍 Kde co mám?</button>
-                        <button type="button" class="quick-chip-btn" data-prompt="Vložím sem recept se surovinami, zkontroluj co máme a připrav vyskladnění.">🧾 Vyskladnit recept</button>
+                    <!-- Quick Prompts Chips Carousel -->
+                    <div class="chat-quick-chips-wrapper">
+                        <div class="chat-quick-chips" id="chat-quick-chips">
+                            <button type="button" class="quick-chip-btn" data-prompt="Co můžu uvařit z toho, co máme v lednici a spíži?">
+                                <span class="chip-icon">🍳</span> Co uvařit ze zásob?
+                            </button>
+                            <button type="button" class="quick-chip-btn" data-prompt="Kterým potravinám brzy končí spotřeba a co z nich uvařit?">
+                                <span class="chip-icon">⚠️</span> Co brzy expiruje?
+                            </button>
+                            <button type="button" class="quick-chip-btn" data-prompt="Co nám dochází a je potřeba dokoupit?">
+                                <span class="chip-icon">🛒</span> Co je potřeba dokoupit?
+                            </button>
+                            <button type="button" class="quick-chip-btn" data-prompt="Kde mám uložené máslo, mléko, vejce a maso?">
+                                <span class="chip-icon">📍</span> Kde co mám?
+                            </button>
+                            <button type="button" class="quick-chip-btn" data-prompt="Vložím sem recept se surovinami, zkontroluj co máme a připrav vyskladnění.">
+                                <span class="chip-icon">🧾</span> Vyskladnit recept
+                            </button>
+                            <button type="button" class="quick-chip-btn" data-prompt="Jaký je celkový přehled a hodnota našich zásob?">
+                                <span class="chip-icon">📊</span> Celkový stav zásob
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Chat Messages Feed -->
                 <div id="chat-messages" class="chat-messages-feed"></div>
 
-                <!-- Chat Input Form -->
-                <form id="form-chat-input" class="chat-input-container">
-                    <button type="button" id="btn-chat-voice" class="chat-tool-btn" title="Hlasové zadání">🎤</button>
-                    <textarea id="chat-user-input" rows="1" placeholder="Zeptejte se na zásoby, vložte recept se surovinami..." required></textarea>
-                    <button type="submit" id="btn-chat-send" class="btn-primary chat-send-btn" title="Odeslat">➤</button>
-                </form>
+                <!-- Chat Input Form / Dock -->
+                <div class="chat-input-dock">
+                    <form id="form-chat-input" class="chat-input-container">
+                        <button type="button" id="btn-chat-voice" class="chat-tool-btn" title="Hlasové zadání">
+                            <span class="chat-mic-icon">🎤</span>
+                        </button>
+                        <textarea id="chat-user-input" rows="1" placeholder="Zeptejte se na zásoby, expirace, nebo vložte recept..." required></textarea>
+                        <button type="submit" id="btn-chat-send" class="btn-primary chat-send-btn" title="Odeslat zprávu">
+                            <svg class="send-icon-svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                            </svg>
+                        </button>
+                    </form>
+                </div>
             </div>
         </section>
     </main>

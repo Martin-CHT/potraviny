@@ -186,8 +186,11 @@ App.Main = {
       App.Shopping.loadItems();
     }
 
-    if (viewId === 'chat' && App.Chat && typeof App.Chat.scrollToBottom === 'function') {
-      setTimeout(() => App.Chat.scrollToBottom(), 100);
+    if (viewId === 'chat' && App.Chat) {
+      if (typeof App.Chat.updateHeaderStatus === 'function') App.Chat.updateHeaderStatus();
+      if (typeof App.Chat.scrollToBottom === 'function') {
+        setTimeout(() => App.Chat.scrollToBottom(), 100);
+      }
     }
   },
   

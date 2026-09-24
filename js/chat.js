@@ -8,6 +8,38 @@ App.Chat = {
     await this.loadHistory();
     this.setupChatUI();
     this.renderMessages();
+    this.updateHeaderStatus();
+  },
+
+  updateHeaderStatus() {
+    const statusEl = document.getElementById('chat-status-inventory-summary');
+    if (!statusEl) return;
+
+    const items = (App.Items && App.Items.items) ? App.Items.items : [];
+    const shopping = (App.Shopping && App.Shopping.items) ? App.Shopping.items.filter(i => !i.checked) : [];
+    
+    let expiringCount = 0;
+    if (App.Items && typeof App.Items.getExpirationStatus === 'function') {
+      items.forEach(it => {
+        if (it.expirations && it.expirations.length > 0) {
+          const st = App.Items.getExpirationStatus(it);
+          if (st.daysLeft <= 3) expiringCount++;
+        }
+      });
+    }
+
+    if (items.length === 0) {
+      statusEl.textContent = 'Zásoby jsou prázdné • Připraven k dotazům';
+    } else {
+      let parts = [`${items.length} potravin v zásobách`];
+      if (expiringCount > 0) {
+        parts.push(`⚠️ ${expiringCount} brzy expiruje`);
+      }
+      if (shopping.length > 0) {
+        parts.push(`🛒 ${shopping.length} na nákupním lístku`);
+      }
+      statusEl.textContent = parts.join(' • ');
+    }
   },
 
   async loadHistory() {
@@ -20,7 +52,7 @@ App.Chat = {
           {
             id: 'welcome',
             role: 'assistant',
-            text: 'Ahoj! Jsem váš chytrý **AI asistent zásob a vaření** 🤖.\n\nVím přesně, co máte v lednici, mrazáku i spíži. Můžete se mě zeptat:\n* *Kde mám uložené máslo a kolik ho zbývá?*\n* *Co brzy expiruje a co z toho uvařit?*\n* *Co je potřeba dokoupit?*\n* Nebo mi sem **vložte libovolný recept se surovinami** a já vám je v zásobách vyhledám a připravím k vyskladnění!',
+            text: 'Ahoj! Jsem váš chytrý **AI kuchař a asistent zásob** 🤖.\n\nV reálném čase sleduji vše, co máte doma v lednici, mrazáku i spíži. Můžete se mě zeptat:\n* *Co dnes uvařit k večeři z toho, co máme doma?*\n* *Kde přesně mám uložené máslo a kolik zbývá?*\n* *Kterým potravinám brzy končí spotřeba?*\n* Nebo mi sem **vložte libovolný recept se surovinami** a já vám je v zásobách vyhledám a připravím k vyskladnění!',
             timestamp: new Date().toISOString()
           }
         ];
@@ -37,17 +69,18 @@ App.Chat = {
   },
 
   async clearHistory() {
-    if (confirm('Opravdu chcete vymazat historii konverzace s AI?')) {
+    if (confirm('Opravdu chcete vymazat historii konverzace s AI asistentem?')) {
       this.messages = [
         {
           id: 'welcome_reset',
           role: 'assistant',
-          text: 'Historie chatu byla vymazána. Jak vám mohu dnes pomoci se zásobami nebo recepty?',
+          text: 'Historie konverzace byla vyčištěna. S čím vám dnes mohu pomoci?',
           timestamp: new Date().toISOString()
         }
       ];
       await this.saveHistory();
       this.renderMessages();
+      this.updateHeaderStatus();
       if (App.Main) App.Main.showToast('Historie chatu vymazána', 'info', 1500);
     }
   },
@@ -88,6 +121,7 @@ App.Chat = {
       await this.saveHistory();
       this.renderMessages();
       this.scrollToBottom();
+      this.updateHeaderStatus();
     } catch (err) {
       console.error('Chat error:', err);
       this.hideTypingIndicator();
@@ -246,13 +280,13 @@ App.Chat = {
     }
 
     // E) Celkový stav zásob
-    if (q.includes('přehled') || q.includes('kolik máme celkem') || q.includes('stav zásob') || q.includes('všechno')) {
+    if (q.includes('přehled') || q.includes('kolik máme celkem') || q.includes('stav zásob') || q.includes('všechno') || q.includes('hodnota')) {
       const totalCount = items.length;
       let totalValue = 0;
       items.forEach(i => { if (i.price) totalValue += i.price * i.quantity; });
 
       return {
-        text: `📦 **Celkový stav vašich zásob:**\n\n• Máte evidováno **${totalCount} položek**.\n• Odhadovaná hodnota zásob: **${totalValue.toFixed(0)} Kč**.\n• Položek v nákupním lístku: **${shoppingItems.filter(i => !i.checked).length}**.\n\nZeptejte se mě na konkrétní surovinu, nebo vložte recept, který chcete uvařit!`
+        text: `📊 **Celkový stav vašich zásob:**\n\n• Máte evidováno **${totalCount} položek** v inventáři.\n• Odhadovaná hodnota zásob: **${totalValue.toFixed(0)} Kč**.\n• Položek v nákupním lístku: **${shoppingItems.filter(i => !i.checked).length}**.\n\nZeptejte se mě na konkrétní surovinu, nebo vložte recept, který chcete uvařit!`
       };
     }
 
@@ -296,6 +330,7 @@ App.Chat = {
           const stockUnit = matchedItem ? matchedItem.unit : rawUnit;
           const location = matchedItem ? (App.Zones ? App.Zones.getZoneLabel(matchedItem.location) : matchedItem.location) : null;
           const locationId = matchedItem ? matchedItem.location : null;
+          const category = matchedItem ? matchedItem.category : 'other';
 
           ingredients.push({
             id: crypto.randomUUID(),
@@ -304,6 +339,7 @@ App.Chat = {
             requestedUnit: rawUnit,
             matchedItemId: matchedItem ? matchedItem.id : null,
             matchedItemName: matchedItem ? matchedItem.name : null,
+            category: category,
             inStockQty: inStock,
             stockUnit: stockUnit,
             location: location,
@@ -496,6 +532,7 @@ INSTRUKCE:
     await this.saveHistory();
     this.renderMessages();
     this.scrollToBottom();
+    this.updateHeaderStatus();
   },
 
   // 2. Přidání chybějících surovin do nákupního lístku
@@ -523,6 +560,7 @@ INSTRUKCE:
 
     if (App.Main) {
       App.Main.showToast(`🛒 Přidáno ${addedCount} chybějících položek do nákupního seznamu!`, 'success', 2500);
+      this.updateHeaderStatus();
     }
   },
 
@@ -556,13 +594,18 @@ INSTRUKCE:
 
       return `
         <div class="chat-message-row ${isUser ? 'msg-user' : 'msg-assistant'}">
-          <div class="chat-avatar">${isUser ? '👤' : '🤖'}</div>
+          <div class="chat-avatar ${isUser ? 'avatar-user' : 'avatar-ai'}">
+            ${isUser ? '👤' : '🤖'}
+          </div>
           <div class="chat-bubble-wrap">
             <div class="chat-bubble">
               <div class="chat-bubble-text">${formattedText}</div>
               ${cardHtml}
             </div>
-            <div class="chat-msg-time">${timeStr}</div>
+            <div class="chat-msg-time">
+              <span>${timeStr}</span>
+              ${isUser ? '<span class="msg-check-icon">✓✓</span>' : ''}
+            </div>
           </div>
         </div>
       `;
@@ -575,37 +618,59 @@ INSTRUKCE:
     const ingredients = recipeData.ingredients || [];
     const availableIngs = ingredients.filter(i => i.isAvailable);
     const missingIngs = ingredients.filter(i => !i.isAvailable);
+    const totalCount = ingredients.length || 1;
+    const progressPct = Math.round((availableIngs.length / totalCount) * 100);
     const ingNamesEscaped = JSON.stringify(ingredients.map(i => i.requestedName)).replace(/"/g, '&quot;');
 
     return `
       <div class="chat-card recipe-checkout-card mt-3" data-card-id="${cardId}">
-        <div class="card-head flex-row justify-between align-center">
-          <strong>📋 Suroviny k vyskladnění (${availableIngs.length}/${ingredients.length} skladem)</strong>
+        <div class="recipe-card-header">
+          <div class="recipe-card-title-group">
+            <span class="recipe-card-icon">🍳</span>
+            <div>
+              <h4 class="recipe-card-title">${recipeData.title || 'Rozpoznaný recept'}</h4>
+              <span class="recipe-card-subtitle">${availableIngs.length} z ${ingredients.length} surovin máte skladem</span>
+            </div>
+          </div>
+          <div class="recipe-stock-badge ${progressPct === 100 ? 'all-ready' : ''}">
+            ${progressPct}%
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="recipe-progress-bar-wrap">
+          <div class="recipe-progress-bar-fill" style="width: ${progressPct}%;"></div>
         </div>
 
         <div class="recipe-ing-table mt-2">
           ${ingredients.map(ing => {
+            const emoji = App.Items ? App.Items.getCategoryEmoji(ing.category) : '📦';
             return `
               <div class="recipe-ing-row ${ing.isAvailable ? 'is-available' : 'is-missing'}" 
                    data-ing-name="${ing.requestedName}" 
                    data-ing-qty="${ing.requestedQty}" 
                    data-ing-unit="${ing.requestedUnit}">
-                <div class="flex-row align-center gap-2 flex-1">
+                <div class="recipe-ing-main">
                   <input type="checkbox" class="recipe-ing-cb" data-item-id="${ing.matchedItemId || ''}" ${ing.checked ? 'checked' : ''} ${!ing.isAvailable ? 'disabled' : ''}>
                   <div class="ing-info">
-                    <span class="ing-name ${!ing.isAvailable ? 'text-muted' : ''}">${ing.requestedName}</span>
-                    <div class="ing-meta text-small text-muted">
+                    <div class="ing-name-row">
+                      <span class="ing-emoji">${emoji}</span>
+                      <strong class="ing-name ${!ing.isAvailable ? 'text-missing' : ''}">${ing.requestedName}</strong>
+                    </div>
+                    <div class="ing-meta">
                       ${ing.isAvailable 
-                        ? `<span class="badge badge-success" style="font-size:0.75rem;">Skladem: ${ing.inStockQty} ${ing.stockUnit} • ${ing.location}</span>`
-                        : `<span class="badge badge-danger" style="font-size:0.75rem;">Chybí v zásobách</span>`
+                        ? `<span class="ing-badge ing-badge-stock">🟢 Skladem: <b>${ing.inStockQty} ${ing.stockUnit}</b></span>
+                           ${ing.location ? `<span class="ing-badge ing-badge-loc">📍 ${ing.location}</span>` : ''}`
+                        : `<span class="ing-badge ing-badge-missing">🔴 Chybí v zásobách (potřeba ${ing.requestedQty} ${ing.requestedUnit})</span>`
                       }
                     </div>
                   </div>
                 </div>
                 ${ing.isAvailable ? `
-                  <div class="ing-qty-consume-wrap">
-                    <input type="number" class="recipe-ing-qty-input" value="${ing.consumeQty}" min="0.01" max="${ing.inStockQty}" step="any" title="Množství k odečtení">
-                    <span class="text-small text-muted">${ing.stockUnit}</span>
+                  <div class="ing-qty-consume-wrap" title="Množství k vyskladnění">
+                    <span class="qty-label">Odečíst:</span>
+                    <input type="number" class="recipe-ing-qty-input" value="${ing.consumeQty}" min="0.01" max="${ing.inStockQty}" step="any">
+                    <span class="qty-unit">${ing.stockUnit}</span>
                   </div>
                 ` : ''}
               </div>
@@ -613,18 +678,18 @@ INSTRUKCE:
           }).join('')}
         </div>
 
-        <div class="recipe-card-actions mt-3 flex-row gap-2 flex-wrap">
+        <div class="recipe-card-actions mt-3">
           ${availableIngs.length > 0 ? `
-            <button type="button" class="btn-primary btn-small btn-consume-recipe" data-card-id="${cardId}" style="background:#27ae60;">
-              ⚡ Vyskladnit vybrané (${availableIngs.length})
+            <button type="button" class="btn-checkout-primary btn-consume-recipe" data-card-id="${cardId}">
+              <span class="btn-icon">⚡</span> Vyskladnit vybrané (${availableIngs.length})
             </button>
           ` : ''}
-          <button type="button" class="btn-secondary btn-small btn-filter-inventory" data-names="${ingNamesEscaped}">
-            🔍 Zobrazit v zásobách
+          <button type="button" class="btn-checkout-secondary btn-filter-inventory" data-names="${ingNamesEscaped}">
+            <span class="btn-icon">🔍</span> Zobrazit v zásobách
           </button>
           ${missingIngs.length > 0 ? `
-            <button type="button" class="btn-secondary btn-small btn-add-missing-shopping" data-card-id="${cardId}">
-              🛒 Přidat ${missingIngs.length} chybějící do nákupu
+            <button type="button" class="btn-checkout-warning btn-add-missing-shopping" data-card-id="${cardId}">
+              <span class="btn-icon">🛒</span> Dokoupit chybějící (${missingIngs.length})
             </button>
           ` : ''}
         </div>
@@ -636,13 +701,18 @@ INSTRUKCE:
     const items = cardData.items || [];
     return `
       <div class="chat-card item-matches-card mt-2">
-        <div class="flex-row gap-2 flex-wrap">
+        <div class="item-matches-grid">
           ${items.map(it => {
             const loc = App.Zones ? App.Zones.getZoneLabel(it.location) : it.location;
             const emoji = App.Items ? App.Items.getCategoryEmoji(it.category) : '📦';
             return `
-              <button type="button" class="btn-secondary btn-small" onclick="App.Main.navigate('inventory'); App.Items.openDetailModal('${it.id}')">
-                ${emoji} ${it.name} (${it.quantity} ${it.unit}) • 📍 ${loc}
+              <button type="button" class="item-match-chip" onclick="App.Main.navigate('inventory'); App.Items.openDetailModal('${it.id}')">
+                <span class="match-chip-emoji">${emoji}</span>
+                <div class="match-chip-info">
+                  <span class="match-chip-title">${it.name}</span>
+                  <span class="match-chip-meta">${it.quantity} ${it.unit} • 📍 ${loc}</span>
+                </div>
+                <span class="match-chip-arrow">→</span>
               </button>
             `;
           }).join('')}
@@ -682,13 +752,13 @@ INSTRUKCE:
       .replace(/>/g, '&gt;')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
-      .replace(/^### (.*$)/gim, '<h4 style="margin: 8px 0 4px 0;">$1</h4>')
-      .replace(/^## (.*$)/gim, '<h3 style="margin: 10px 0 6px 0;">$1</h3>')
-      .replace(/^# (.*$)/gim, '<h2 style="margin: 12px 0 8px 0;">$1</h2>')
-      .replace(/^\s*[•\-\*]\s*(.*$)/gim, '<li>$1</li>')
-      .replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>')
-      .replace(/<\/ul>\s*<ul>/gim, '')
-      .replace(/\n\n/g, '<br><br>')
+      .replace(/^### (.*$)/gim, '<h4 class="chat-heading-h4">$1</h4>')
+      .replace(/^## (.*$)/gim, '<h3 class="chat-heading-h3">$1</h3>')
+      .replace(/^# (.*$)/gim, '<h2 class="chat-heading-h2">$1</h2>')
+      .replace(/^\s*[•\-\*]\s*(.*$)/gim, '<li class="chat-list-item">$1</li>')
+      .replace(/(<li.*<\/li>)/gim, '<ul class="chat-list">$1</ul>')
+      .replace(/<\/ul>\s*<ul class="chat-list">/gim, '')
+      .replace(/\n\n/g, '<div class="chat-paragraph-gap"></div>')
       .replace(/\n/g, '<br>');
 
     return html;
@@ -705,11 +775,14 @@ INSTRUKCE:
     ind.id = 'chat-typing-indicator';
     ind.className = 'chat-message-row msg-assistant typing';
     ind.innerHTML = `
-      <div class="chat-avatar">🤖</div>
-      <div class="chat-bubble">
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
-        <span class="typing-dot"></span>
+      <div class="chat-avatar avatar-ai">🤖</div>
+      <div class="chat-bubble typing-bubble">
+        <div class="typing-dots-container">
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+          <span class="typing-dot"></span>
+        </div>
+        <span class="typing-text">AI přemýšlí...</span>
       </div>
     `;
     container.appendChild(ind);
@@ -724,7 +797,9 @@ INSTRUKCE:
   scrollToBottom() {
     const container = document.getElementById('chat-messages');
     if (container) {
-      container.scrollTop = container.scrollHeight;
+      setTimeout(() => {
+        container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+      }, 50);
     }
   },
 
@@ -742,8 +817,15 @@ INSTRUKCE:
         const text = input.value.trim();
         if (text) {
           input.value = '';
+          input.style.height = 'auto';
           this.sendUserMessage(text);
         }
+      });
+
+      // Auto-resize textarea as user types
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
       });
 
       // Odeslání stisknutím Enter (pokud není Shift+Enter)
@@ -771,6 +853,7 @@ INSTRUKCE:
     if (btnHeaderChat && App.Main) {
       btnHeaderChat.addEventListener('click', () => {
         App.Main.navigate('chat');
+        this.updateHeaderStatus();
       });
     }
 
@@ -785,3 +868,4 @@ INSTRUKCE:
     });
   }
 };
+

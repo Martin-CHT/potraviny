@@ -378,11 +378,17 @@ App.Items = {
     if (this.currentFilters.location !== 'all') {
       const loc = this.currentFilters.location;
       result = result.filter(i => {
+        if (!i.location) return loc === 'ostatni';
         if (i.location === loc) return true;
-        // Pokud je filtr 'lednice', zahrnout i 'lednice_horni', 'lednice_dvere' apod.
-        if (loc === 'lednice' && i.location && i.location.startsWith('lednice')) return true;
-        if (loc === 'mrazak' && i.location && i.location.startsWith('mrazak')) return true;
-        if (loc === 'spiz' && i.location && i.location.startsWith('spiz')) return true;
+        if (loc === 'lednice' && i.location.startsWith('lednice')) return true;
+        if (loc === 'mrazak' && i.location.startsWith('mrazak')) return true;
+        if (loc === 'spiz' && i.location.startsWith('spiz')) return true;
+        if (loc === 'suplik' && i.location.startsWith('suplik')) return true;
+        if (loc === 'skrin' && i.location.startsWith('skrin')) return true;
+        if (loc === 'police' && i.location.startsWith('police')) return true;
+        if (loc === 'ostatni') {
+          return !['lednice', 'mrazak', 'spiz', 'suplik', 'skrin', 'police'].some(prefix => i.location.startsWith(prefix));
+        }
         return false;
       });
     }
@@ -501,11 +507,88 @@ App.Items = {
     }
   },
 
+  // Zobrazit pouze filtry (kategorie a umístění), ve kterých je alespoň jedna položka
+  updateFilterVisibility() {
+    const items = this.items || [];
+
+    // 1. KATEGORIE
+    const categoryCounts = {};
+    items.forEach(i => {
+      const cat = i.category || 'ostatni';
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+    });
+
+    if (this.currentFilters.category !== 'all' && !categoryCounts[this.currentFilters.category]) {
+      this.currentFilters.category = 'all';
+    }
+
+    const categoryTabs = document.querySelectorAll('.category-tab');
+    categoryTabs.forEach(tab => {
+      const cat = tab.dataset.category;
+      if (cat === 'all') {
+        tab.style.display = '';
+        tab.classList.toggle('active', this.currentFilters.category === 'all');
+      } else {
+        const count = categoryCounts[cat] || 0;
+        if (count > 0) {
+          tab.style.display = '';
+          tab.classList.toggle('active', this.currentFilters.category === cat);
+        } else {
+          tab.style.display = 'none';
+          tab.classList.remove('active');
+        }
+      }
+    });
+
+    // 2. UMÍSTĚNÍ
+    const hasLocationMatch = (loc) => {
+      return items.some(i => {
+        if (!i.location) return loc === 'ostatni';
+        if (i.location === loc) return true;
+        if (loc === 'lednice' && i.location.startsWith('lednice')) return true;
+        if (loc === 'mrazak' && i.location.startsWith('mrazak')) return true;
+        if (loc === 'spiz' && i.location.startsWith('spiz')) return true;
+        if (loc === 'suplik' && i.location.startsWith('suplik')) return true;
+        if (loc === 'skrin' && i.location.startsWith('skrin')) return true;
+        if (loc === 'police' && i.location.startsWith('police')) return true;
+        if (loc === 'ostatni') {
+          return !['lednice', 'mrazak', 'spiz', 'suplik', 'skrin', 'police'].some(prefix => i.location.startsWith(prefix));
+        }
+        return false;
+      });
+    };
+
+    if (this.currentFilters.location !== 'all' && !hasLocationMatch(this.currentFilters.location)) {
+      this.currentFilters.location = 'all';
+    }
+
+    const locationPills = document.querySelectorAll('.location-pill');
+    locationPills.forEach(pill => {
+      const loc = pill.dataset.location;
+      if (loc === 'all') {
+        pill.style.display = '';
+        pill.classList.toggle('active', this.currentFilters.location === 'all');
+      } else {
+        const hasItems = hasLocationMatch(loc);
+        if (hasItems) {
+          pill.style.display = '';
+          pill.classList.toggle('active', this.currentFilters.location === loc);
+        } else {
+          pill.style.display = 'none';
+          pill.classList.remove('active');
+        }
+      }
+    });
+  },
+
   renderItems() {
     const container = document.getElementById('items-container');
     const emptyState = document.getElementById('empty-state');
     if (!container) return;
     
+    // Automaticky aktualizovat viditelnost filtrů dle reálného obsahu
+    this.updateFilterVisibility();
+
     const items = this.getFilteredAndSorted();
     
     if (items.length === 0) {
@@ -981,6 +1064,7 @@ App.Items = {
         this.setFilter('category', tab.dataset.category);
       });
     });
+    this.updateFilterVisibility();
   },
 
   setupLocationFilters() {
@@ -992,6 +1076,7 @@ App.Items = {
         this.setFilter('location', pill.dataset.location);
       });
     });
+    this.updateFilterVisibility();
   },
 
   setupViewModeToggle() {
