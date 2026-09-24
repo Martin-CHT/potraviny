@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Potraviny - Správce zásob</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1a73e8">
+    <link rel="icon" type="image/svg+xml" href="icons/icon-512.svg">
+    <link rel="apple-touch-icon" href="icons/icon-512.svg">
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header id="header">
+        <div class="header-content">
+            <div class="logo-title">Potraviny</div>
+            <div class="header-actions">
+                <div class="search-container">
+                    <input type="text" id="search-input" placeholder="Hledat potraviny...">
+                </div>
+                <button id="btn-voice-search" class="icon-button" aria-label="Hlasové vyhledávání">🎤</button>
+                <button id="btn-notifications" class="icon-button" aria-label="Notifikace">
+                    🔔<span id="notification-badge" class="notification-badge badge hidden">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Views -->
+    <main id="main-content">
+        <!-- View: Inventory -->
+        <section id="view-inventory" class="view active">
+            <div id="category-tabs" class="scrollable-filters">
+                <button class="category-tab active" data-category="all">Vše</button>
+                <button class="category-tab" data-category="mlecne">Mléčné</button>
+                <button class="category-tab" data-category="maso">Maso</button>
+                <button class="category-tab" data-category="ovoce_zelenina">Ovoce & Zelenina</button>
+                <button class="category-tab" data-category="pecivo">Pečivo</button>
+                <button class="category-tab" data-category="napoje">Nápoje</button>
+                <button class="category-tab" data-category="mrazene">Mražené</button>
+                <button class="category-tab" data-category="konzervy">Konzervy</button>
+                <button class="category-tab" data-category="koreni">Koření</button>
+                <button class="category-tab" data-category="sladkosti">Sladkosti</button>
+                <button class="category-tab" data-category="ostatni">Ostatní</button>
+            </div>
+
+            <div id="location-filters" class="scrollable-filters">
+                <button class="location-pill active" data-location="all">🏠 Vše</button>
+                <button class="location-pill" data-location="lednice">🧊 Lednice</button>
+                <button class="location-pill" data-location="mrazak">❄️ Mrazák</button>
+                <button class="location-pill" data-location="spiz">🏪 Spíž</button>
+                <button class="location-pill" data-location="suplik">🗄️ Šuplík</button>
+                <button class="location-pill" data-location="skrin">🚪 Skříň</button>
+                <button class="location-pill" data-location="police">📚 Police</button>
+                <button class="location-pill" data-location="ostatni">📦 Ostatní</button>
+            </div>
+
+            <div id="sort-bar">
+                <span id="current-sort-text">Řazení: Název (A-Z)</span>
+                <button id="btn-sort" class="btn-text">Změnit řazení ↕</button>
+            </div>
+
+            <div id="items-container" class="grid-container"></div>
+            
+            <div id="empty-state" class="hidden">
+                <div class="empty-icon">📦</div>
+                <p>Zatím nemáte žádné potraviny</p>
+            </div>
+        </section>
+
+        <!-- View: Scanner -->
+        <section id="view-scanner" class="view hidden">
+            <div class="scanner-tabs">
+                <button class="scanner-tab active" data-target="barcode">Čárový kód</button>
+                <button class="scanner-tab" data-target="receipt">Účtenka</button>
+            </div>
+            
+            <div id="scanner-barcode-area" class="scanner-area active">
+                <div id="scanner-preview"></div>
+                <div class="manual-barcode">
+                    <input type="text" id="input-barcode-manual" placeholder="Zadat kód ručně">
+                    <button id="btn-barcode-submit" class="btn-primary">OK</button>
+                </div>
+                <div id="scanner-result" class="hidden"></div>
+            </div>
+
+            <div id="receipt-scan-area" class="scanner-area hidden">
+                <div class="receipt-actions">
+                    <label for="input-receipt-file" class="btn-primary btn-block">Vybrat fotku účtenky</label>
+                    <input type="file" id="input-receipt-file" accept="image/*" class="hidden">
+                    <button id="btn-capture-receipt" class="btn-secondary btn-block">Vyfotit účtenku</button>
+                </div>
+                <div id="receipt-processing" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Zpracovávám účtenku...</p>
+                </div>
+                <div id="receipt-results"></div>
+            </div>
+        </section>
+
+        <!-- View: Recipes -->
+        <section id="view-recipes" class="view hidden">
+            <div class="search-container">
+                <input type="text" id="recipe-search-input" placeholder="Hledat recepty...">
+            </div>
+            <button id="btn-recipes-from-stock" class="btn-primary btn-block">Recepty z mých zásob</button>
+            <div id="recipes-container" class="grid-container"></div>
+            
+            <template id="recipe-card-template">
+                <div class="recipe-card">
+                    <img class="recipe-img" src="" alt="Recept">
+                    <div class="recipe-content">
+                        <h3 class="recipe-title"></h3>
+                        <p class="recipe-ingredients"></p>
+                        <a href="#" class="recipe-link" target="_blank">Zobrazit recept</a>
+                    </div>
+                </div>
+            </template>
+        </section>
+
+        <!-- View: Settings -->
+        <section id="view-settings" class="view hidden">
+            <div class="settings-card">
+                <h3>Synchronizace</h3>
+                <div class="form-group">
+                    <label for="input-sheets-id">Google Sheets ID</label>
+                    <input type="text" id="input-sheets-id">
+                </div>
+                <div class="form-group">
+                    <label for="input-sheets-api-key">Google API Key</label>
+                    <input type="password" id="input-sheets-api-key">
+                </div>
+                <div class="sync-actions">
+                    <button id="btn-sync-upload" class="btn-primary">Odeslat data</button>
+                    <button id="btn-sync-download" class="btn-secondary">Stáhnout data</button>
+                </div>
+                <p id="last-sync-time" class="text-small text-muted">Poslední synchronizace: Nikdy</p>
+            </div>
+
+            <div class="settings-card">
+                <h3>Notifikace</h3>
+                <div class="toggle-group">
+                    <span>Push notifikace</span>
+                    <label class="switch">
+                        <input type="checkbox" id="setting-notifications">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="form-group mt-2">
+                    <label for="setting-exp-days">Varovat dní před expirací</label>
+                    <input type="number" id="setting-exp-days" value="3" min="1">
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <h3>Zobrazení</h3>
+                <div class="toggle-group">
+                    <span>Tmavý režim</span>
+                    <label class="switch">
+                        <input type="checkbox" id="setting-darkmode">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="toggle-group mt-2">
+                    <span>Zobrazit jako seznam</span>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-default-view">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <h3>Měřič plýtvání</h3>
+                <div class="toggle-group">
+                    <span>Zapnout měřič plýtvání</span>
+                    <label class="switch">
+                        <input type="checkbox" id="setting-waste">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <button id="btn-waste-report" class="btn-secondary btn-block mt-2">Zobrazit statistiky plýtvání</button>
+            </div>
+
+            <div class="settings-card">
+                <h3>AI Nastavení</h3>
+                <div class="form-group">
+                    <label for="input-ai-api-key">AI API Klíč (Google Gemini nebo OpenAI - volitelné)</label>
+                    <input type="password" id="input-ai-api-key" placeholder="AIza... nebo sk-...">
+                    <small class="text-muted" style="display:block; margin-top:4px; font-size:0.8rem;">Aplikace plně funguje i offline bez API klíče díky vestavěným heuristikám.</small>
+                </div>
+                <div class="toggle-group mt-2">
+                    <span>Automaticky aktualizovat ceny</span>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-auto-prices">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="settings-card">
+                <h3>Data</h3>
+                <button id="btn-export-data" class="btn-secondary btn-block">Exportovat data</button>
+                <input type="file" id="input-import-data" accept=".json" class="hidden">
+                <button id="btn-import-data" class="btn-secondary btn-block mt-2">Importovat data</button>
+                <button id="btn-clear-data" class="btn-danger btn-block mt-2">Vymazat všechna data</button>
+            </div>
+
+            <div class="settings-card">
+                <h3>O aplikaci</h3>
+                <p>Potraviny - Správce zásob</p>
+                <p>Verze: 1.0.0</p>
+                <button id="btn-save-settings" class="btn-primary btn-block mt-3">Uložit nastavení</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- FAB Container -->
+    <div id="fab-container">
+        <div id="fab-menu" class="hidden">
+            <button id="fab-add-manual" class="fab-menu-item">✏️ Přidat ručně</button>
+            <button id="fab-scan-barcode" class="fab-menu-item">📷 Naskenovat kód</button>
+            <button id="fab-voice-input" class="fab-menu-item">🎤 Hlasové zadávání</button>
+            <button id="fab-unpack" class="fab-menu-item">🛒 Vybalit nákup</button>
+            <button id="fab-scan-receipt" class="fab-menu-item">🧾 Naskenovat účtenku</button>
+        </div>
+        <button id="main-fab" class="fab-btn">+</button>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <nav id="bottom-nav">
+        <button id="nav-inventory" class="bottom-nav-item active" data-view="inventory">
+            <span class="nav-icon">📦</span>
+            <span class="nav-label">Zásoby</span>
+        </button>
+        <button id="nav-scanner" class="bottom-nav-item" data-view="scanner">
+            <span class="nav-icon">📸</span>
+            <span class="nav-label">Skenovat</span>
+        </button>
+        <button id="nav-recipes" class="bottom-nav-item" data-view="recipes">
+            <span class="nav-icon">🍳</span>
+            <span class="nav-label">Recepty</span>
+        </button>
+        <button id="nav-settings" class="bottom-nav-item" data-view="settings">
+            <span class="nav-icon">⚙️</span>
+            <span class="nav-label">Nastavení</span>
+        </button>
+    </nav>
+
+    <!-- Modals -->
+    <!-- Modal: Add/Edit Item -->
+    <div id="modal-add-item" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-add-item-title">Přidat potravinu</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="form-add-item">
+                    <input type="hidden" id="item-id">
+                    
+                    <div id="item-image-preview" class="image-preview">
+                        <span class="placeholder-icon">📷</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="item-name">Název *</label>
+                        <input type="text" id="item-name" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="item-category">Kategorie</label>
+                            <select id="item-category">
+                                <option value="mlecne">Mléčné</option>
+                                <option value="maso">Maso</option>
+                                <option value="ovoce_zelenina">Ovoce & Zelenina</option>
+                                <option value="pecivo">Pečivo</option>
+                                <option value="napoje">Nápoje</option>
+                                <option value="mrazene">Mražené</option>
+                                <option value="konzervy">Konzervy</option>
+                                <option value="koreni">Koření</option>
+                                <option value="sladkosti">Sladkosti</option>
+                                <option value="ostatni">Ostatní</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="item-location">Umístění</label>
+                            <select id="item-location">
+                                <option value="lednice">Lednice</option>
+                                <option value="mrazak">Mrazák</option>
+                                <option value="spiz">Spíž</option>
+                                <option value="suplik">Šuplík</option>
+                                <option value="skrin">Skříň</option>
+                                <option value="police">Police</option>
+                                <option value="ostatni">Ostatní</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group flex-1">
+                            <label for="item-quantity">Množství</label>
+                            <input type="number" id="item-quantity" value="1" min="0.01" step="0.01">
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="item-unit">Jednotka</label>
+                            <select id="item-unit">
+                                <option value="ks">ks</option>
+                                <option value="kg">kg</option>
+                                <option value="g">g</option>
+                                <option value="l">l</option>
+                                <option value="ml">ml</option>
+                                <option value="baleni">balení</option>
+                                <option value="sacek">sáček</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="item-barcode">Čárový kód</label>
+                        <input type="text" id="item-barcode">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="item-price">Cena (Kč)</label>
+                        <input type="number" id="item-price" step="0.01">
+                        <div class="checkbox-group mt-1">
+                            <input type="checkbox" id="input-price-manual">
+                            <label for="input-price-manual">Ručně nastavená cena</label>
+                        </div>
+                        <button type="button" id="btn-refresh-price" class="btn-text mt-1 hidden">Obnovit cenu z internetu</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Data spotřeby</label>
+                        <p class="text-small text-muted mb-2">Pokud nevyplníte, AI odhadne trvanlivost automaticky</p>
+                        <div id="expirations-container"></div>
+                        <button type="button" id="btn-add-expiration" class="btn-secondary btn-small">+ Přidat datum</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="item-notes">Poznámky</label>
+                        <textarea id="item-notes" rows="2"></textarea>
+                    </div>
+
+                    <details id="nutrition-section" class="collapsible-section">
+                        <summary>Nutriční hodnoty</summary>
+                        <div class="grid-2-col mt-2">
+                            <div class="form-group">
+                                <label>Energie (kcal)</label>
+                                <input type="number" id="input-nut-energy">
+                            </div>
+                            <div class="form-group">
+                                <label>Tuky (g)</label>
+                                <input type="number" id="input-nut-fat">
+                            </div>
+                            <div class="form-group">
+                                <label>Sacharidy (g)</label>
+                                <input type="number" id="input-nut-carbs">
+                            </div>
+                            <div class="form-group">
+                                <label>Bílkoviny (g)</label>
+                                <input type="number" id="input-nut-protein">
+                            </div>
+                            <div class="form-group">
+                                <label>Vláknina (g)</label>
+                                <input type="number" id="input-nut-fiber">
+                            </div>
+                            <div class="form-group">
+                                <label>Sůl (g)</label>
+                                <input type="number" id="input-nut-salt">
+                            </div>
+                        </div>
+                    </details>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="btn-cancel-add" class="btn-secondary modal-close">Zrušit</button>
+                <button type="button" id="btn-save-item" class="btn-primary">Uložit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Item Detail -->
+    <div id="modal-item-detail" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detail potraviny</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-header">
+                    <img id="detail-image" src="" alt="" class="hidden">
+                    <h3 id="detail-name"></h3>
+                    <div class="badges">
+                        <span id="detail-category-badge" class="badge"></span>
+                        <span id="detail-location-badge" class="badge"></span>
+                    </div>
+                </div>
+                
+                <div class="detail-section">
+                    <p class="detail-qty"><span id="detail-quantity"></span> <span id="detail-unit"></span></p>
+                </div>
+
+                <div class="detail-section">
+                    <h4>Data spotřeby</h4>
+                    <div id="detail-expirations"></div>
+                </div>
+
+                <div class="detail-section">
+                    <h4>Cena</h4>
+                    <p><span id="detail-price"></span> Kč</p>
+                    <button id="btn-detail-refresh-price" class="btn-text">Obnovit cenu</button>
+                </div>
+
+                <div class="detail-section">
+                    <h4>Čárový kód</h4>
+                    <p id="detail-barcode"></p>
+                </div>
+
+                <div class="detail-section">
+                    <h4>Poznámky</h4>
+                    <p id="detail-notes"></p>
+                </div>
+
+                <div class="detail-section" id="detail-nutrition-info">
+                    <h4>Nutriční hodnoty</h4>
+                    <div id="nutrition-container" class="grid-2-col"></div>
+                </div>
+            </div>
+            <div class="modal-footer action-buttons">
+                <button id="btn-detail-edit" class="btn-primary">Upravit</button>
+                <button id="btn-detail-consume" class="btn-success">Spotřebovat</button>
+                <button id="btn-detail-waste" class="btn-warning hidden">Vyhodit</button>
+                <button id="btn-detail-delete" class="btn-danger">Smazat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Unpack Shopping -->
+    <div id="modal-unpack" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Vybalit nákup</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Naskenujte nebo přidejte zakoupené položky. AI automaticky navrhne, kam je uložit.</p>
+                <div class="flex-row mt-2 mb-3">
+                    <button id="btn-unpack-scan" class="btn-primary flex-1">Skenovat kód</button>
+                    <button id="btn-unpack-add-manual" class="btn-secondary flex-1 ml-2">Přidat ručně</button>
+                </div>
+                <div id="unpack-list" class="list-container"></div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-cancel-unpack" class="btn-secondary modal-close">Zrušit</button>
+                <button id="btn-confirm-unpack" class="btn-primary">Potvrdit a uložit vše</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Waste Report -->
+    <div id="modal-waste-report" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Měřič plýtvání</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <select id="waste-period-select" class="mb-3">
+                    <option value="week">Tento týden</option>
+                    <option value="month">Tento měsíc</option>
+                    <option value="all">Celkově</option>
+                </select>
+                
+                <div class="stats-row mb-3">
+                    <div class="stat-card">
+                        <div class="stat-value" id="waste-stat-count">0</div>
+                        <div class="stat-label">Vyhozených položek</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="waste-stat-value">0 Kč</div>
+                        <div class="stat-label">Ztracená hodnota</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="waste-stat-percent">0 %</div>
+                        <div class="stat-label">Podíl z celku</div>
+                    </div>
+                </div>
+
+                <h3>Nedávno vyhozené</h3>
+                <div id="waste-history-list" class="list-container"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary modal-close">Zavřít</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Sort Options -->
+    <div id="modal-sort" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Řazení</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="radio-list">
+                    <label class="radio-option"><input type="radio" name="sort-option" value="name_asc" checked> Název (A-Z)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="name_desc"> Název (Z-A)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="exp_asc"> Datum spotřeby (nejbližší)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="exp_desc"> Datum spotřeby (nejpozdější)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="added_desc"> Datum přidání (nejnovější)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="added_asc"> Datum přidání (nejstarší)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="category"> Kategorie</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="location"> Umístění</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="price_asc"> Cena (nejnižší)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="price_desc"> Cena (nejvyšší)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="qty_asc"> Množství (nejméně)</label>
+                    <label class="radio-option"><input type="radio" name="sort-option" value="qty_desc"> Množství (nejvíce)</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-apply-sort" class="btn-primary modal-close">Použít</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Voice Input -->
+    <div id="modal-voice-input" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content text-center">
+            <div class="modal-header">
+                <h2>Hlasové zadávání</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="voice-container">
+                    <button id="btn-start-voice" class="voice-btn-large">🎤</button>
+                    <p id="voice-status" class="mt-3">Klikněte pro nahrávání</p>
+                    <div id="voice-transcript" class="mt-2 text-muted"></div>
+                </div>
+                <div id="voice-parsed-items" class="mt-4 text-left hidden">
+                    <h4>Rozpoznané položky:</h4>
+                    <div id="voice-items-list" class="list-container"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btn-voice-cancel" class="btn-secondary modal-close">Zrušit</button>
+                <button id="btn-voice-confirm" class="btn-primary hidden">Potvrdit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Consume/Waste Item -->
+    <div id="modal-consume" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-consume-title">Spotřebovat</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <form id="form-consume">
+                <div class="modal-body">
+                    <p>Kolik chcete odebrat položky <strong id="consume-item-name"></strong>?</p>
+                    <div class="form-group mt-3">
+                        <label for="consume-qty">Množství</label>
+                        <div class="input-with-unit">
+                            <input type="number" id="consume-qty" value="1" min="0.01" step="0.01">
+                            <span id="consume-item-unit" class="unit-addon"></span>
+                        </div>
+                    </div>
+                    <input type="hidden" id="consume-action">
+                    <input type="hidden" id="consume-item-id">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary modal-close">Zrušit</button>
+                    <button type="submit" id="btn-confirm-consume" class="btn-primary">Potvrdit</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Loading Overlay -->
+    <div id="global-loader" class="hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/db.js"></script>
+    <script src="js/ai.js"></script>
+    <script src="js/items.js"></script>
+    <script src="js/scanner.js"></script>
+    <script src="js/voice.js"></script>
+    <script src="js/recipes.js"></script>
+    <script src="js/sync.js"></script>
+    <script src="js/notifications.js"></script>
+    <script src="js/waste.js"></script>
+    <script src="js/prices.js"></script>
+    <script src="js/unpack.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

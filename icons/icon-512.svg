@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a73e8"/>
+      <stop offset="100%" style="stop-color:#0d47a1"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+  <!-- Refrigerator icon -->
+  <rect x="156" y="80" width="200" height="352" rx="20" fill="white" opacity="0.95"/>
+  <line x1="156" y1="240" x2="356" y2="240" stroke="#1a73e8" stroke-width="3"/>
+  <rect x="320" y="150" width="12" height="60" rx="6" fill="#1a73e8"/>
+  <rect x="320" y="270" width="12" height="40" rx="6" fill="#1a73e8"/>
+  <!-- Food items -->
+  <circle cx="220" cy="170" r="25" fill="#4CAF50" opacity="0.8"/>
+  <text x="220" y="178" text-anchor="middle" fill="white" font-size="28">🍎</text>
+  <circle cx="290" cy="170" r="25" fill="#FF9800" opacity="0.8"/>
+  <text x="290" y="178" text-anchor="middle" fill="white" font-size="28">🧀</text>
+  <circle cx="220" cy="310" r="25" fill="#2196F3" opacity="0.8"/>
+  <text x="220" y="318" text-anchor="middle" fill="white" font-size="28">🥛</text>
+  <circle cx="290" cy="310" r="25" fill="#F44336" opacity="0.8"/>
+  <text x="290" y="318" text-anchor="middle" fill="white" font-size="28">🥩</text>
+  <!-- Checkmark badge -->
+  <circle cx="380" cy="100" r="45" fill="#34a853"/>
+  <polyline points="355,100 373,118 405,82" fill="none" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
