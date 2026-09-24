@@ -1,4 +1,4 @@
-const CACHE_NAME = 'potraviny-v3';
+const CACHE_NAME = 'potraviny-v4';
 
 const ASSETS_TO_CACHE = [
   './',
@@ -17,6 +17,7 @@ const ASSETS_TO_CACHE = [
   './js/waste.js',
   './js/prices.js',
   './js/unpack.js',
+  './js/chat.js',
   './js/app.js',
   './manifest.json',
   './icons/icon-512.svg'

@@ -44,6 +44,10 @@
                     <span class="nav-icon">🍳</span>
                     <span class="nav-label">Recepty</span>
                 </button>
+                <button class="desktop-nav-item" data-view="chat">
+                    <span class="nav-icon">💬</span>
+                    <span class="nav-label">AI Chat</span>
+                </button>
                 <button class="desktop-nav-item" data-view="settings">
                     <span class="nav-icon">⚙️</span>
                     <span class="nav-label">Nastavení</span>
@@ -54,6 +58,7 @@
                 <div class="search-container">
                     <input type="text" id="search-input" placeholder="Hledat potraviny...">
                 </div>
+                <button id="btn-header-chat" class="icon-button" aria-label="AI Chat" title="AI Asistent zásob">💬</button>
                 <button id="btn-voice-search" class="icon-button" aria-label="Hlasové vyhledávání">🎤</button>
                 <button id="btn-notifications" class="icon-button" aria-label="Notifikace">
                     🔔<span id="notification-badge" class="notification-badge badge hidden">0</span>
@@ -353,6 +358,43 @@
                 </button>
             </div>
         </section>
+
+        <!-- View: AI Chat & Recipe Assistant -->
+        <section id="view-chat" class="view hidden">
+            <div class="chat-container">
+                <div class="chat-header-card">
+                    <div class="flex-row align-center justify-between">
+                        <div class="flex-row align-center gap-2">
+                            <span style="font-size: 1.8rem;">🤖</span>
+                            <div>
+                                <h2 style="margin:0; font-size:1.15rem;">AI Asistent zásob & Receptů</h2>
+                                <span class="text-small text-muted" id="chat-ai-status">V reálném čase zná vaše zásoby, expirace a nákupní lístek</span>
+                            </div>
+                        </div>
+                        <button type="button" id="btn-chat-clear" class="btn-text text-small text-muted" title="Vymazat konverzaci">🗑️ Vymazat</button>
+                    </div>
+
+                    <!-- Quick Prompts Chips -->
+                    <div class="chat-quick-chips mt-3">
+                        <button type="button" class="quick-chip-btn" data-prompt="Co můžu uvařit z toho, co mám v lednici a spíži?">🍳 Co uvařit ze zásob?</button>
+                        <button type="button" class="quick-chip-btn" data-prompt="Kterým potravinám brzy končí spotřeba a co z nich uvařit?">⚠️ Co brzy expiruje?</button>
+                        <button type="button" class="quick-chip-btn" data-prompt="Co nám dochází a je potřeba dokoupit?">🛒 Co je potřeba dokoupit?</button>
+                        <button type="button" class="quick-chip-btn" data-prompt="Kde mám uložené máslo, mléko a sýry?">📍 Kde co mám?</button>
+                        <button type="button" class="quick-chip-btn" data-prompt="Vložím sem recept se surovinami, zkontroluj co máme a připrav vyskladnění.">🧾 Vyskladnit recept</button>
+                    </div>
+                </div>
+
+                <!-- Chat Messages Feed -->
+                <div id="chat-messages" class="chat-messages-feed"></div>
+
+                <!-- Chat Input Form -->
+                <form id="form-chat-input" class="chat-input-container">
+                    <button type="button" id="btn-chat-voice" class="chat-tool-btn" title="Hlasové zadání">🎤</button>
+                    <textarea id="chat-user-input" rows="1" placeholder="Zeptejte se na zásoby, vložte recept se surovinami..." required></textarea>
+                    <button type="submit" id="btn-chat-send" class="btn-primary chat-send-btn" title="Odeslat">➤</button>
+                </form>
+            </div>
+        </section>
     </main>
 
     <!-- FAB Container -->
@@ -376,6 +418,10 @@
         <button id="nav-shopping" class="bottom-nav-item" data-view="shopping">
             <span class="nav-icon">🛒</span>
             <span class="nav-label">Nákup</span>
+        </button>
+        <button id="nav-chat" class="bottom-nav-item" data-view="chat">
+            <span class="nav-icon">💬</span>
+            <span class="nav-label">AI Chat</span>
         </button>
         <button id="nav-scanner" class="bottom-nav-item" data-view="scanner">
             <span class="nav-icon">📸</span>
@@ -837,6 +883,7 @@
     <script src="js/waste.js"></script>
     <script src="js/prices.js"></script>
     <script src="js/unpack.js"></script>
+    <script src="js/chat.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

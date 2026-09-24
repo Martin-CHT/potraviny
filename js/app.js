@@ -122,6 +122,14 @@ App.Main = {
       console.error("Notifications module init error:", e);
     }
 
+    try {
+      if (App.Chat && typeof App.Chat.init === 'function') {
+        await App.Chat.init();
+      }
+    } catch (e) {
+      console.error("Chat module init error:", e);
+    }
+
     this.registerServiceWorker();
 
     // Listen for items updates
@@ -176,6 +184,10 @@ App.Main = {
 
     if (viewId === 'shopping' && App.Shopping && typeof App.Shopping.loadItems === 'function') {
       App.Shopping.loadItems();
+    }
+
+    if (viewId === 'chat' && App.Chat && typeof App.Chat.scrollToBottom === 'function') {
+      setTimeout(() => App.Chat.scrollToBottom(), 100);
     }
   },
   

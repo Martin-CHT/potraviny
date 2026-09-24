@@ -4,104 +4,104 @@ App.AI = {
   // Rozšířená databáze běžné trvanlivosti potravin a výchozích umístění pro české domácnosti
   shelfLifeDB: [
     // Mléčné výrobky
-    { keywords: ['mléko čerstvé', 'čerstvé mléko', 'mléko'], category: 'mlecne', days: 7, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['trvanlivé mléko', 'mléko uht', 'uht'], category: 'mlecne', days: 90, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['jogurt', 'bílý jogurt', 'ovocný jogurt', 'actimel', 'skyre', 'skyr', 'pribináček'], category: 'mlecne', days: 21, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['sýr', 'eidam', 'gouda', 'eidam 30%', 'eidam 45%', 'čedar', 'cheddar', 'parmezán', 'mozzarella', 'balkánský', 'hermelín', 'camembert', 'niva'], category: 'mlecne', days: 25, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['tvaroh', 'tvaroh měkký', 'tvaroh tvrdý'], category: 'mlecne', days: 10, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['máslo', 'čerstvé máslo', 'pomazánkové máslo'], category: 'mlecne', days: 40, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['smetana', 'šlehačka', 'zakysaná smetana', 'crème fraîche'], category: 'mlecne', days: 14, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['kefír', 'podmáslí', 'acidofilní mléko', 'kyška'], category: 'mlecne', days: 14, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['lučina', 'žervé', 'cottage', 'ricotta'], category: 'mlecne', days: 14, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['vejce', 'vajíčka'], category: 'mlecne', days: 28, location: 'lednice', type: 'minimalni_trvanlivost' },
+    { keywords: ['mléko čerstvé', 'čerstvé mléko', 'mléko'], category: 'mlecne', days: 7, location: 'lednice_dvere_dolni', type: 'spotrebujte_do' },
+    { keywords: ['trvanlivé mléko', 'mléko uht', 'uht'], category: 'mlecne', days: 90, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['jogurt', 'bílý jogurt', 'ovocný jogurt', 'actimel', 'skyre', 'skyr', 'pribináček'], category: 'mlecne', days: 21, location: 'lednice_horni', type: 'minimalni_trvanlivost' },
+    { keywords: ['sýr', 'eidam', 'gouda', 'eidam 30%', 'eidam 45%', 'čedar', 'cheddar', 'parmezán', 'mozzarella', 'balkánský', 'hermelín', 'camembert', 'niva'], category: 'mlecne', days: 25, location: 'lednice_stredni', type: 'minimalni_trvanlivost' },
+    { keywords: ['tvaroh', 'tvaroh měkký', 'tvaroh tvrdý'], category: 'mlecne', days: 10, location: 'lednice_horni', type: 'spotrebujte_do' },
+    { keywords: ['máslo', 'čerstvé máslo', 'pomazánkové máslo'], category: 'mlecne', days: 40, location: 'lednice_dvere_horni', type: 'minimalni_trvanlivost' },
+    { keywords: ['smetana', 'šlehačka', 'zakysaná smetana', 'crème fraîche'], category: 'mlecne', days: 14, location: 'lednice_horni', type: 'spotrebujte_do' },
+    { keywords: ['kefír', 'podmáslí', 'acidofilní mléko', 'kyška'], category: 'mlecne', days: 14, location: 'lednice_dvere_dolni', type: 'spotrebujte_do' },
+    { keywords: ['lučina', 'žervé', 'cottage', 'ricotta'], category: 'mlecne', days: 14, location: 'lednice_horni', type: 'spotrebujte_do' },
+    { keywords: ['vejce', 'vajíčka'], category: 'mlecne', days: 28, location: 'lednice_dvere_horni', type: 'minimalni_trvanlivost' },
 
     // Maso a uzeniny
-    { keywords: ['kuřecí prsa', 'kuřecí stehna', 'kuřecí maso', 'kuře', 'krůtí maso', 'krůtí prsa'], category: 'maso', days: 3, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['vepřové', 'krkovice', 'kotleta', 'vepřová pečeně', 'panenka', 'bůček'], category: 'maso', days: 4, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['hovězí', 'zadní hovězí', 'roštěná', 'svíčková', 'gulášové maso'], category: 'maso', days: 5, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['mleté maso', 'mleté', 'mix hovězí vepřové', 'tatarák'], category: 'maso', days: 2, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['šunka', 'vepřová šunka', 'kuřecí šunka', 'dušená šunka', 'prosciutto'], category: 'maso', days: 5, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['salám', 'vysočina', 'poličan', 'turista', 'paprikáš', 'uherák'], category: 'maso', days: 45, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['klobása', 'klobásy', 'špekáčky', 'špekáček'], category: 'maso', days: 14, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['párek', 'párky', 'vídeňské párky', 'debrecínské párky'], category: 'maso', days: 7, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['slanina', 'anglická slanina', 'špek'], category: 'maso', days: 21, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['ryba', 'losos', 'treska', 'kapr', 'pstruh', 'tuňák čerstvý'], category: 'maso', days: 2, location: 'lednice', type: 'spotrebujte_do' },
+    { keywords: ['kuřecí prsa', 'kuřecí stehna', 'kuřecí maso', 'kuře', 'krůtí maso', 'krůtí prsa'], category: 'maso', days: 3, location: 'lednice_dolni', type: 'spotrebujte_do' },
+    { keywords: ['vepřové', 'krkovice', 'kotleta', 'vepřová pečeně', 'panenka', 'bůček'], category: 'maso', days: 4, location: 'lednice_dolni', type: 'spotrebujte_do' },
+    { keywords: ['hovězí', 'zadní hovězí', 'roštěná', 'svíčková', 'gulášové maso'], category: 'maso', days: 5, location: 'lednice_dolni', type: 'spotrebujte_do' },
+    { keywords: ['mleté maso', 'mleté', 'mix hovězí vepřové', 'tatarák'], category: 'maso', days: 2, location: 'lednice_dolni', type: 'spotrebujte_do' },
+    { keywords: ['šunka', 'vepřová šunka', 'kuřecí šunka', 'dušená šunka', 'prosciutto'], category: 'maso', days: 5, location: 'lednice_stredni', type: 'spotrebujte_do' },
+    { keywords: ['salám', 'vysočina', 'poličan', 'turista', 'paprikáš', 'uherák'], category: 'maso', days: 45, location: 'lednice_stredni', type: 'minimalni_trvanlivost' },
+    { keywords: ['klobása', 'klobásy', 'špekáčky', 'špekáček'], category: 'maso', days: 14, location: 'lednice_stredni', type: 'spotrebujte_do' },
+    { keywords: ['párek', 'párky', 'vídeňské párky', 'debrecínské párky'], category: 'maso', days: 7, location: 'lednice_stredni', type: 'spotrebujte_do' },
+    { keywords: ['slanina', 'anglická slanina', 'špek'], category: 'maso', days: 21, location: 'lednice_stredni', type: 'spotrebujte_do' },
+    { keywords: ['ryba', 'losos', 'treska', 'kapr', 'pstruh', 'tuňák čerstvý'], category: 'maso', days: 2, location: 'lednice_dolni', type: 'spotrebujte_do' },
 
     // Ovoce
-    { keywords: ['jablko', 'jablka', 'golden', 'gala'], category: 'ovoce_zelenina', days: 28, location: 'spiz', type: 'minimalni_trvanlivost' },
+    { keywords: ['jablko', 'jablka', 'golden', 'gala'], category: 'ovoce_zelenina', days: 28, location: 'lednice_suplik', type: 'minimalni_trvanlivost' },
     { keywords: ['banán', 'banány'], category: 'ovoce_zelenina', days: 6, location: 'police', type: 'minimalni_trvanlivost' },
-    { keywords: ['pomeranč', 'pomeranče', 'citron', 'citrony', 'mandarinka', 'mandarinky', 'grep', 'limetka'], category: 'ovoce_zelenina', days: 14, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['jahody', 'maliny', 'borůvky', 'ostružiny'], category: 'ovoce_zelenina', days: 3, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['hrozny', 'hroznové víno'], category: 'ovoce_zelenina', days: 8, location: 'lednice', type: 'spotrebujte_do' },
+    { keywords: ['pomeranč', 'pomeranče', 'citron', 'citrony', 'mandarinka', 'mandarinky', 'grep', 'limetka'], category: 'ovoce_zelenina', days: 14, location: 'lednice_suplik', type: 'minimalni_trvanlivost' },
+    { keywords: ['jahody', 'maliny', 'borůvky', 'ostružiny'], category: 'ovoce_zelenina', days: 3, location: 'lednice_horni', type: 'spotrebujte_do' },
+    { keywords: ['hrozny', 'hroznové víno'], category: 'ovoce_zelenina', days: 8, location: 'lednice_suplik', type: 'spotrebujte_do' },
     { keywords: ['kiwi', 'mango', 'avokádo'], category: 'ovoce_zelenina', days: 7, location: 'police', type: 'minimalni_trvanlivost' },
-    { keywords: ['meloun', 'vodní meloun'], category: 'ovoce_zelenina', days: 7, location: 'lednice', type: 'spotrebujte_do' },
+    { keywords: ['meloun', 'vodní meloun'], category: 'ovoce_zelenina', days: 7, location: 'lednice_suplik', type: 'spotrebujte_do' },
 
     // Zelenina
     { keywords: ['rajče', 'rajčata', 'cherry rajčata'], category: 'ovoce_zelenina', days: 7, location: 'police', type: 'minimalni_trvanlivost' },
-    { keywords: ['okurka', 'hadovka', 'polní okurky'], category: 'ovoce_zelenina', days: 10, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['paprika', 'papriky', 'kapie'], category: 'ovoce_zelenina', days: 10, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['mrkev', 'petržel', 'celer', 'kořenová zelenina'], category: 'ovoce_zelenina', days: 28, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['cibule', 'česnek', 'šalotka'], category: 'ovoce_zelenina', days: 60, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['brambory', 'brambor'], category: 'ovoce_zelenina', days: 60, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['salát', 'ledový salát', 'hlávkový salát', 'římský salát'], category: 'ovoce_zelenina', days: 6, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['špenát', 'rukola', 'polníček'], category: 'ovoce_zelenina', days: 4, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['brokolice', 'květák'], category: 'ovoce_zelenina', days: 7, location: 'lednice', type: 'spotrebujte_do' },
-    { keywords: ['cuketa', 'lilek'], category: 'ovoce_zelenina', days: 10, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['žampiony', 'houby'], category: 'ovoce_zelenina', days: 5, location: 'lednice', type: 'spotrebujte_do' },
+    { keywords: ['okurka', 'hadovka', 'polní okurky'], category: 'ovoce_zelenina', days: 10, location: 'lednice_suplik', type: 'minimalni_trvanlivost' },
+    { keywords: ['paprika', 'papriky', 'kapie'], category: 'ovoce_zelenina', days: 10, location: 'lednice_suplik', type: 'minimalni_trvanlivost' },
+    { keywords: ['mrkev', 'petržel', 'celer', 'kořenová zelenina'], category: 'ovoce_zelenina', days: 28, location: 'lednice_suplik', type: 'minimalni_trvanlivost' },
+    { keywords: ['cibule', 'česnek', 'šalotka'], category: 'ovoce_zelenina', days: 60, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['brambory', 'brambor'], category: 'ovoce_zelenina', days: 60, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['salát', 'ledový salát', 'hlávkový salát', 'římský salát'], category: 'ovoce_zelenina', days: 6, location: 'lednice_suplik', type: 'spotrebujte_do' },
+    { keywords: ['špenát', 'rukola', 'polníček'], category: 'ovoce_zelenina', days: 4, location: 'lednice_suplik', type: 'spotrebujte_do' },
+    { keywords: ['brokolice', 'květák'], category: 'ovoce_zelenina', days: 7, location: 'lednice_suplik', type: 'spotrebujte_do' },
+    { keywords: ['cuketa', 'lilek'], category: 'ovoce_zelenina', days: 10, location: 'lednice_suplik', type: 'minimalni_trvanlivost' },
+    { keywords: ['žampiony', 'houby'], category: 'ovoce_zelenina', days: 5, location: 'lednice_suplik', type: 'spotrebujte_do' },
 
     // Pečivo
-    { keywords: ['chleba', 'chléb', 'šumava', 'kvasový chléb'], category: 'pecivo', days: 5, location: 'spiz', type: 'spotrebujte_do' },
-    { keywords: ['rohlík', 'rohlíky', 'houska', 'housky'], category: 'pecivo', days: 2, location: 'spiz', type: 'spotrebujte_do' },
-    { keywords: ['toastový chléb', 'toustový chléb', 'toast'], category: 'pecivo', days: 10, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['bageta', 'kaiserka'], category: 'pecivo', days: 2, location: 'spiz', type: 'spotrebujte_do' },
-    { keywords: ['croissant', 'koláč', 'buchta', 'šáteček', 'kobliha', 'vánočka', 'mazanec'], category: 'pecivo', days: 3, location: 'spiz', type: 'spotrebujte_do' },
-    { keywords: ['dort', 'zákusek', 'chlebíčky'], category: 'pecivo', days: 3, location: 'lednice', type: 'spotrebujte_do' },
+    { keywords: ['chleba', 'chléb', 'šumava', 'kvasový chléb'], category: 'pecivo', days: 5, location: 'spiz_1', type: 'spotrebujte_do' },
+    { keywords: ['rohlík', 'rohlíky', 'houska', 'housky'], category: 'pecivo', days: 2, location: 'spiz_1', type: 'spotrebujte_do' },
+    { keywords: ['toastový chléb', 'toustový chléb', 'toast'], category: 'pecivo', days: 10, location: 'spiz_1', type: 'minimalni_trvanlivost' },
+    { keywords: ['bageta', 'kaiserka'], category: 'pecivo', days: 2, location: 'spiz_1', type: 'spotrebujte_do' },
+    { keywords: ['croissant', 'koláč', 'buchta', 'šáteček', 'kobliha', 'vánočka', 'mazanec'], category: 'pecivo', days: 3, location: 'spiz_1', type: 'spotrebujte_do' },
+    { keywords: ['dort', 'zákusek', 'chlebíčky'], category: 'pecivo', days: 3, location: 'lednice_horni', type: 'spotrebujte_do' },
 
     // Nápoje
-    { keywords: ['džus', 'šťáva', 'juice'], category: 'napoje', days: 180, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['limonáda', 'kofola', 'coca cola', 'pepsi', 'fanta', 'sprite'], category: 'napoje', days: 180, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['pivo', 'ležák', 'pilsner', 'kozel', 'radegast', 'birell'], category: 'napoje', days: 180, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['víno', 'bílé víno', 'červené víno', 'prosecco'], category: 'napoje', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['minerálka', 'voda', 'mattoni', 'magnesia', 'rajec', 'korunní'], category: 'napoje', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['káva', 'zrnková káva', 'mletá káva', 'čaj'], category: 'napoje', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
+    { keywords: ['džus', 'šťáva', 'juice'], category: 'napoje', days: 180, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['limonáda', 'kofola', 'coca cola', 'pepsi', 'fanta', 'sprite'], category: 'napoje', days: 180, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['pivo', 'ležák', 'pilsner', 'kozel', 'radegast', 'birell'], category: 'napoje', days: 180, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['víno', 'bílé víno', 'červené víno', 'prosecco'], category: 'napoje', days: 365, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['minerálka', 'voda', 'mattoni', 'magnesia', 'rajec', 'korunní'], category: 'napoje', days: 365, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['káva', 'zrnková káva', 'mletá káva', 'čaj'], category: 'napoje', days: 365, location: 'skrin', type: 'minimalni_trvanlivost' },
 
     // Mražené
-    { keywords: ['zmrzlina', 'nanuk', 'míša', 'magnum'], category: 'mrazene', days: 365, location: 'mrazak', type: 'minimalni_trvanlivost' },
-    { keywords: ['mražená zelenina', 'hranolky', 'mražený hrášek', 'špenát mražený'], category: 'mrazene', days: 365, location: 'mrazak', type: 'minimalni_trvanlivost' },
-    { keywords: ['mražené maso', 'rybí prsty', 'mražené kuře'], category: 'mrazene', days: 180, location: 'mrazak', type: 'minimalni_trvanlivost' },
-    { keywords: ['pizza mražená', 'mražená pizza'], category: 'mrazene', days: 180, location: 'mrazak', type: 'minimalni_trvanlivost' },
+    { keywords: ['zmrzlina', 'nanuk', 'míša', 'magnum'], category: 'mrazene', days: 365, location: 'mrazak_horni', type: 'minimalni_trvanlivost' },
+    { keywords: ['mražená zelenina', 'hranolky', 'mražený hrášek', 'špenát mražený'], category: 'mrazene', days: 365, location: 'mrazak_dolni', type: 'minimalni_trvanlivost' },
+    { keywords: ['mražené maso', 'rybí prsty', 'mražené kuře'], category: 'mrazene', days: 180, location: 'mrazak_stredni', type: 'minimalni_trvanlivost' },
+    { keywords: ['pizza mražená', 'mražená pizza'], category: 'mrazene', days: 180, location: 'mrazak_stredni', type: 'minimalni_trvanlivost' },
 
     // Konzervy a trvanlivé
-    { keywords: ['konzerva', 'hotové jídlo'], category: 'konzervy', days: 730, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['fazole plechovka', 'hrášek plechovka', 'kukuřice plechovka', 'fazole', 'cizrna'], category: 'konzervy', days: 730, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['tuňák v konzervě', 'sardinky', 'rybičky', 'tuňák'], category: 'konzervy', days: 1095, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['paštika', 'májka', 'játrovka'], category: 'konzervy', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['protlak', 'rajčatový protlak', 'drcená rajčata', 'passata'], category: 'konzervy', days: 730, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['okurky sterilované', 'znojmia', 'sterilovaný hrášek', 'kompot'], category: 'konzervy', days: 730, location: 'spiz', type: 'minimalni_trvanlivost' },
+    { keywords: ['konzerva', 'hotové jídlo'], category: 'konzervy', days: 730, location: 'spiz_1', type: 'minimalni_trvanlivost' },
+    { keywords: ['fazole plechovka', 'hrášek plechovka', 'kukuřice plechovka', 'fazole', 'cizrna'], category: 'konzervy', days: 730, location: 'spiz_1', type: 'minimalni_trvanlivost' },
+    { keywords: ['tuňák v konzervě', 'sardinky', 'rybičky', 'tuňák'], category: 'konzervy', days: 1095, location: 'spiz_1', type: 'minimalni_trvanlivost' },
+    { keywords: ['paštika', 'májka', 'játrovka'], category: 'konzervy', days: 365, location: 'spiz_1', type: 'minimalni_trvanlivost' },
+    { keywords: ['protlak', 'rajčatový protlak', 'drcená rajčata', 'passata'], category: 'konzervy', days: 730, location: 'spiz_1', type: 'minimalni_trvanlivost' },
+    { keywords: ['okurky sterilované', 'znojmia', 'sterilovaný hrášek', 'kompot'], category: 'konzervy', days: 730, location: 'spiz_1', type: 'minimalni_trvanlivost' },
 
     // Koření a dochucovadla
     { keywords: ['sůl', 'pepř', 'paprika mletá', 'kmín', 'vegeta'], category: 'koreni', days: 1095, location: 'suplik', type: 'minimalni_trvanlivost' },
     { keywords: ['oregano', 'bazalka', 'majoránka', 'bobkový list', 'nové koření'], category: 'koreni', days: 730, location: 'suplik', type: 'minimalni_trvanlivost' },
     { keywords: ['skořice', 'curry', 'kari', 'kurkuma', 'zázvor mletý'], category: 'koreni', days: 730, location: 'suplik', type: 'minimalni_trvanlivost' },
-    { keywords: ['kečup', 'hořčice', 'tatarka', 'majonéza'], category: 'koreni', days: 180, location: 'lednice', type: 'minimalni_trvanlivost' },
-    { keywords: ['sójová omáčka', 'worcester', 'tabasco'], category: 'koreni', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
+    { keywords: ['kečup', 'hořčice', 'tatarka', 'majonéza'], category: 'koreni', days: 180, location: 'lednice_dvere_stredni', type: 'minimalni_trvanlivost' },
+    { keywords: ['sójová omáčka', 'worcester', 'tabasco'], category: 'koreni', days: 365, location: 'lednice_dvere_stredni', type: 'minimalni_trvanlivost' },
 
     // Sladkosti a snacky
-    { keywords: ['čokoláda', 'studentská pečeť', 'milka', 'orion'], category: 'sladkosti', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['sušenky', 'opavia', 'fidorka', 'tatranky', 'horalky', 'bebe'], category: 'sladkosti', days: 180, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['bonbóny', 'haribo', 'gumové medvídky'], category: 'sladkosti', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['med', 'džem', 'marmeláda', 'jahodový džem'], category: 'sladkosti', days: 730, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['nutella', 'arašídové máslo'], category: 'sladkosti', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['chipsy', 'brambůrky', 'křupky', 'tyčinky', 'oříšky'], category: 'sladkosti', days: 120, location: 'spiz', type: 'minimalni_trvanlivost' },
+    { keywords: ['čokoláda', 'studentská pečeť', 'milka', 'orion'], category: 'sladkosti', days: 365, location: 'skrin', type: 'minimalni_trvanlivost' },
+    { keywords: ['sušenky', 'opavia', 'fidorka', 'tatranky', 'horalky', 'bebe'], category: 'sladkosti', days: 180, location: 'skrin', type: 'minimalni_trvanlivost' },
+    { keywords: ['bonbóny', 'haribo', 'gumové medvídky'], category: 'sladkosti', days: 365, location: 'skrin', type: 'minimalni_trvanlivost' },
+    { keywords: ['med', 'džem', 'marmeláda', 'jahodový džem'], category: 'sladkosti', days: 730, location: 'spiz_1', type: 'minimalni_trvanlivost' },
+    { keywords: ['nutella', 'arašídové máslo'], category: 'sladkosti', days: 365, location: 'spiz_1', type: 'minimalni_trvanlivost' },
+    { keywords: ['chipsy', 'brambůrky', 'křupky', 'tyčinky', 'oříšky'], category: 'sladkosti', days: 120, location: 'skrin', type: 'minimalni_trvanlivost' },
 
     // Ostatní suché potraviny
-    { keywords: ['mouka', 'hladká mouka', 'polohrubá mouka', 'hrubá mouka', 'pšeničná mouka', 'žitná mouka'], category: 'ostatni', days: 240, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['cukr', 'krystal', 'cukr moučka', 'třtinový cukr'], category: 'ostatni', days: 1095, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['rýže', 'basmati', 'jasmínová rýže'], category: 'ostatni', days: 730, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['těstoviny', 'špagety', 'kolínka', 'penne', 'vřetena'], category: 'ostatni', days: 730, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['olej', 'slunečnicový olej', 'řepkový olej', 'olivový olej'], category: 'ostatni', days: 365, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['ocet', 'jablečný ocet', 'balsamico'], category: 'ostatni', days: 1095, location: 'spiz', type: 'minimalni_trvanlivost' },
-    { keywords: ['droždí', 'kvasnice'], category: 'ostatni', days: 14, location: 'lednice', type: 'spotrebujte_do' }
+    { keywords: ['mouka', 'hladká mouka', 'polohrubá mouka', 'hrubá mouka', 'pšeničná mouka', 'žitná mouka'], category: 'ostatni', days: 240, location: 'spiz_2', type: 'minimalni_trvanlivost' },
+    { keywords: ['cukr', 'krystal', 'cukr moučka', 'třtinový cukr'], category: 'ostatni', days: 1095, location: 'spiz_2', type: 'minimalni_trvanlivost' },
+    { keywords: ['rýže', 'basmati', 'jasmínová rýže'], category: 'ostatni', days: 730, location: 'spiz_2', type: 'minimalni_trvanlivost' },
+    { keywords: ['těstoviny', 'špagety', 'kolínka', 'penne', 'vřetena'], category: 'ostatni', days: 730, location: 'spiz_2', type: 'minimalni_trvanlivost' },
+    { keywords: ['olej', 'slunečnicový olej', 'řepkový olej', 'olivový olej'], category: 'ostatni', days: 365, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['ocet', 'jablečný ocet', 'balsamico'], category: 'ostatni', days: 1095, location: 'spiz_3', type: 'minimalni_trvanlivost' },
+    { keywords: ['droždí', 'kvasnice'], category: 'ostatni', days: 14, location: 'lednice_dvere_horni', type: 'spotrebujte_do' }
   ],
 
   // Databáze průměrných nutričních hodnot (na 100g) pro české potraviny
@@ -422,10 +422,16 @@ App.AI = {
         return entry.location;
       }
     }
-    if (category === 'mrazene') return 'mrazak';
-    if (category === 'mlecne' || category === 'maso') return 'lednice';
+    if (category === 'mrazene') return 'mrazak_stredni';
+    if (category === 'mlecne') return 'lednice_horni';
+    if (category === 'maso') return 'lednice_stredni';
+    if (category === 'ovoce_zelenina') return 'lednice_suplik';
     if (category === 'koreni') return 'suplik';
-    return 'spiz';
+    if (category === 'sladkosti') return 'skrin';
+    if (category === 'pecivo') return 'spiz_1';
+    if (category === 'konzervy') return 'spiz_1';
+    if (category === 'napoje') return 'spiz_3';
+    return 'spiz_1';
   },
 
   // Dotaz na OpenAI / Gemini API pokud je nastaven API klíč
