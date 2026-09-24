@@ -18,6 +18,27 @@
     <header id="header">
         <div class="header-content">
             <div class="logo-title">Potraviny</div>
+            
+            <!-- Desktop Navigation -->
+            <nav class="desktop-nav">
+                <button class="desktop-nav-item active" data-view="inventory">
+                    <span class="nav-icon">📦</span>
+                    <span class="nav-label">Zásoby</span>
+                </button>
+                <button class="desktop-nav-item" data-view="scanner">
+                    <span class="nav-icon">📸</span>
+                    <span class="nav-label">Skenovat</span>
+                </button>
+                <button class="desktop-nav-item" data-view="recipes">
+                    <span class="nav-icon">🍳</span>
+                    <span class="nav-label">Recepty</span>
+                </button>
+                <button class="desktop-nav-item" data-view="settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-label">Nastavení</span>
+                </button>
+            </nav>
+
             <div class="header-actions">
                 <div class="search-container">
                     <input type="text" id="search-input" placeholder="Hledat potraviny...">
@@ -125,20 +146,32 @@
         <!-- View: Settings -->
         <section id="view-settings" class="view hidden">
             <div class="settings-card">
-                <h3>Synchronizace</h3>
+                <h3>🔑 Domácnost & Přihlašovací fráze</h3>
+                <p class="text-small text-muted">
+                    Zadejte přihlašovací frázi Vaší domácnosti. Díky ní můžete aplikaci otevřít na mobilu, tabletu i PC bez nutnosti pokaždé znovu vyplňovat data, nastavení a API klíče.
+                </p>
                 <div class="form-group">
-                    <label for="input-sheets-id">Google Sheets ID</label>
-                    <input type="text" id="input-sheets-id">
+                    <label for="input-passphrase">Přihlašovací fráze (např. rodina-novakovi)</label>
+                    <input type="text" id="input-passphrase" placeholder="napr. rodina-novakovi">
                 </div>
                 <div class="form-group">
-                    <label for="input-sheets-api-key">Google API Key</label>
-                    <input type="password" id="input-sheets-api-key">
+                    <label for="input-sheets-id">Google Apps Script Web App URL / Sheets ID</label>
+                    <input type="text" id="input-sheets-id" placeholder="https://script.google.com/macros/s/.../exec">
+                    <small class="text-muted" style="display:block; margin-top:4px; font-size:0.75rem;">URL webové aplikace vytvořené v Google Sheets (podrobný návod je v README.md).</small>
                 </div>
-                <div class="sync-actions">
-                    <button id="btn-sync-upload" class="btn-primary">Odeslat data</button>
-                    <button id="btn-sync-download" class="btn-secondary">Stáhnout data</button>
+                <div class="form-group">
+                    <label for="input-sheets-api-key">Google API Key (volitelné pro přímé Google Sheets REST API)</label>
+                    <input type="password" id="input-sheets-api-key" placeholder="AIzaSy...">
                 </div>
-                <p id="last-sync-time" class="text-small text-muted">Poslední synchronizace: Nikdy</p>
+                <div class="sync-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button type="button" id="btn-passphrase-login" class="btn-primary flex-1">📥 Přihlásit se & Stáhnout data</button>
+                    <button type="button" id="btn-passphrase-save" class="btn-success flex-1">📤 Uložit data do cloudu</button>
+                </div>
+                <div id="passphrase-status" class="mt-2 text-small" style="padding: 10px 12px; background: var(--background); border-radius: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                    <span id="passphrase-status-badge">⚪ Nepřihlášeno k žádné frázi</span>
+                    <button type="button" id="btn-passphrase-disconnect" class="btn-text text-small hidden" style="color: var(--danger); padding: 0;">Odpojit</button>
+                </div>
+                <p id="last-sync-time" class="text-small text-muted mt-1">Poslední synchronizace: Nikdy</p>
             </div>
 
             <div class="settings-card">

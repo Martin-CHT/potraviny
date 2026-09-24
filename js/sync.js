@@ -3,121 +3,170 @@ window.App = window.App || {};
 App.Sync = {
   lastSyncTime: null,
   
-  async syncToSheets() {
-    const sheetsId = await App.DB.getSetting('googleSheetsId') || await App.DB.getSetting('input-sheets-id');
-    const apiKey = await App.DB.getSetting('googleSheetsApiKey') || await App.DB.getSetting('input-sheets-api-key');
-    
-    if (!sheetsId) {
-      if (App.Main) App.Main.showToast('Vyplňte prosím Google Sheets ID v Nastavení.', 'warning', 3500);
-      return;
-    }
-    
-    if (App.Main) App.Main.showLoading();
-    
-    try {
-      const items = await App.DB.getAll('items') || [];
-      const data = this.formatForSheets(items);
-      
-      // Pokud je ID URL skriptu (Google Apps Script Web App)
-      if (sheetsId.startsWith('https://script.google.com')) {
-        const response = await fetch(sheetsId, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'upload', items: items })
-        });
-      } else {
-        // Google Sheets API v4
-        if (!apiKey) {
-          throw new Error('Pro Google Sheets API zadejte i API Key.');
-        }
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetsId}/values/Potraviny!A1?valueInputOption=USER_ENTERED&key=${apiKey}`;
-        const response = await fetch(url, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: data })
-        });
-        
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error?.message || 'Chyba při zápisu. Zkontrolujte oprávnění tabulky.');
-        }
-      }
-      
-      this.lastSyncTime = new Date();
-      await App.DB.setSetting('lastSyncTime', this.lastSyncTime.toISOString());
-      this.updateLastSyncUI();
-      
-      if (App.Main) App.Main.showToast('Zásoby byly úspěšně synchronizovány do Google Sheets.', 'success', 3000);
-    } catch (e) {
-      console.error('Sheets sync error:', e);
-      if (App.Main) App.Main.showToast('Synchronizace selhala: ' + e.message, 'error', 4000);
-    } finally {
-      if (App.Main) App.Main.hideLoading();
-    }
-  },
-  
-  async syncFromSheets() {
-    const sheetsId = await App.DB.getSetting('googleSheetsId') || await App.DB.getSetting('input-sheets-id');
-    const apiKey = await App.DB.getSetting('googleSheetsApiKey') || await App.DB.getSetting('input-sheets-api-key');
-    
-    if (!sheetsId) {
-      if (App.Main) App.Main.showToast('Vyplňte prosím Google Sheets ID v Nastavení.', 'warning', 3500);
-      return;
-    }
-    
-    if (App.Main) App.Main.showLoading();
-    
-    try {
-      let items = [];
+  // Přihlášení a načtení kompletních dat domácnosti pomocí přihlašovací fráze
+  async loginWithPassphrase(passphrase = null, scriptUrl = null) {
+    passphrase = passphrase || (document.getElementById('input-passphrase')?.value || '').trim();
+    scriptUrl = scriptUrl || (document.getElementById('input-sheets-id')?.value || '').trim();
 
-      if (sheetsId.startsWith('https://script.google.com')) {
-        const response = await fetch(`${sheetsId}?action=download`);
-        const json = await response.json();
-        items = json.items || [];
-      } else {
-        if (!apiKey) throw new Error('Pro stažení přes Google API je vyžadován API klíč.');
-        const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetsId}/values/Potraviny!A1:Z1000?key=${apiKey}`;
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error?.message || 'Chyba při čtení tabulky.');
-        }
-        
-        const json = await response.json();
-        if (!json.values || json.values.length < 2) throw new Error('Tabulka neobsahuje žádné řádky s daty.');
-        
-        items = this.parseFromSheets(json.values);
-      }
+    if (!passphrase) {
+      if (App.Main) App.Main.showToast('Zadejte prosím přihlašovací frázi (např. rodina-novakovi).', 'warning', 3500);
+      return;
+    }
+
+    if (!scriptUrl) {
+      if (App.Main) App.Main.showToast('Zadejte URL Google Apps Script webové aplikace v poli níže.', 'warning', 3500);
+      return;
+    }
+
+    if (App.Main) App.Main.showLoading();
+
+    try {
+      const url = `${scriptUrl}?action=login&passphrase=${encodeURIComponent(passphrase)}`;
+      const response = await fetch(url);
       
+      if (!response.ok) {
+        throw new Error(`Chyba serveru (${response.status})`);
+      }
+
+      const result = await response.json();
+      if (result.status === 'error') {
+        throw new Error(result.message || 'Nepodařilo se ověřit přihlašovací frázi.');
+      }
+
+      // 1. Uložit přihlašovací údaje
+      await App.DB.setSetting('householdPassphrase', passphrase);
+      await App.DB.setSetting('googleSheetsId', scriptUrl);
+      await App.DB.setSetting('input-sheets-id', scriptUrl);
+
+      // 2. Importovat nastavení ze serveru pokud existuje
+      if (result.settings && typeof result.settings === 'object') {
+        for (let key in result.settings) {
+          if (key !== 'householdPassphrase') {
+            await App.DB.setSetting(key, result.settings[key]);
+          }
+        }
+        if (App.Main) App.Main.applySettings(result.settings);
+      }
+
+      // 3. Importovat položky inventáře
       let importedCount = 0;
-      for (let it of items) {
-        const existing = await App.DB.get('items', it.id);
-        if (existing) {
-          await App.DB.put('items', { ...existing, ...it });
-        } else {
-          await App.DB.add('items', it);
+      if (Array.isArray(result.items)) {
+        for (let it of result.items) {
+          if (!it.id) it.id = crypto.randomUUID();
+          const existing = await App.DB.get('items', it.id);
+          if (existing) {
+            await App.DB.put('items', { ...existing, ...it });
+          } else {
+            await App.DB.add('items', it);
+          }
+          importedCount++;
         }
-        importedCount++;
       }
-      
+
+      // 4. Importovat historii pokud je k dispozici
+      if (Array.isArray(result.history)) {
+        for (let h of result.history) {
+          if (!h.id) h.id = crypto.randomUUID();
+          const existH = await App.DB.get('history', h.id);
+          if (!existH) await App.DB.add('history', h);
+        }
+      }
+
       this.lastSyncTime = new Date();
       await App.DB.setSetting('lastSyncTime', this.lastSyncTime.toISOString());
-      this.updateLastSyncUI();
       
+      this.updatePassphraseUI();
+      this.updateLastSyncUI();
+
       if (App.Items) {
         await App.Items.loadItems();
         App.Items.renderItems();
       }
-      if (App.Main) App.Main.showToast(`Načteno ${importedCount} položek z Google Sheets.`, 'success', 3000);
-      
-    } catch (e) {
-      console.error('Sheets download error:', e);
-      if (App.Main) App.Main.showToast('Chyba načítání: ' + e.message, 'error', 4000);
+
+      if (App.Main) {
+        App.Main.showToast(`Úspěšně přihlášeno k domácnosti "${passphrase}" (${importedCount} položek načteno).`, 'success', 3500);
+      }
+
+    } catch (err) {
+      console.error('Passphrase login error:', err);
+      if (App.Main) App.Main.showToast('Chyba přihlášení k synchronizaci: ' + err.message, 'error', 4500);
     } finally {
       if (App.Main) App.Main.hideLoading();
     }
+  },
+
+  // Uložení všech dat a nastavení do Google Sheets pod danou přihlašovací frází
+  async saveToPassphrase() {
+    const passphrase = (document.getElementById('input-passphrase')?.value || '').trim() || await App.DB.getSetting('householdPassphrase');
+    const scriptUrl = (document.getElementById('input-sheets-id')?.value || '').trim() || await App.DB.getSetting('googleSheetsId');
+
+    if (!passphrase) {
+      if (App.Main) App.Main.showToast('Zadejte prosím přihlašovací frázi domácnosti.', 'warning', 3500);
+      return;
+    }
+
+    if (!scriptUrl) {
+      if (App.Main) App.Main.showToast('Zadejte URL Google Apps Scriptu.', 'warning', 3500);
+      return;
+    }
+
+    if (App.Main) App.Main.showLoading();
+
+    try {
+      const items = await App.DB.getAll('items') || [];
+      const settings = await App.DB.getAllSettings() || {};
+      const history = await App.DB.getAll('history') || [];
+
+      // Uložit do cloudu přes POST
+      const payload = {
+        action: 'save',
+        passphrase: passphrase,
+        items: items,
+        settings: settings,
+        history: history.slice(-100), // Posledních 100 záznamů historie
+        updatedAt: new Date().toISOString()
+      };
+
+      const response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // text/plain pro vyhnutí se CORS preflight chybám v GAS
+        body: JSON.stringify(payload)
+      });
+
+      await App.DB.setSetting('householdPassphrase', passphrase);
+      await App.DB.setSetting('googleSheetsId', scriptUrl);
+
+      this.lastSyncTime = new Date();
+      await App.DB.setSetting('lastSyncTime', this.lastSyncTime.toISOString());
+      
+      this.updatePassphraseUI();
+      this.updateLastSyncUI();
+
+      if (App.Main) App.Main.showToast(`Data domácnosti "${passphrase}" byla uložena do Google Sheets.`, 'success', 3500);
+    } catch (err) {
+      console.error('Save to passphrase error:', err);
+      if (App.Main) App.Main.showToast('Chyba při ukládání: ' + err.message, 'error', 4500);
+    } finally {
+      if (App.Main) App.Main.hideLoading();
+    }
+  },
+
+  // Odpojení od přihlašovací fráze
+  async disconnectPassphrase() {
+    await App.DB.setSetting('householdPassphrase', '');
+    const passInput = document.getElementById('input-passphrase');
+    if (passInput) passInput.value = '';
+    this.updatePassphraseUI();
+    if (App.Main) App.Main.showToast('Odpojeno od domácnosti.', 'info', 2500);
+  },
+
+  // Starší / přímá synchronizace přes REST API
+  async syncToSheets() {
+    return this.saveToPassphrase();
+  },
+  
+  async syncFromSheets() {
+    return this.loginWithPassphrase();
   },
   
   formatForSheets(items) {
@@ -187,12 +236,45 @@ App.Sync = {
       el.textContent = `Poslední synchronizace: ${new Date(time).toLocaleString('cs-CZ')}`;
     }
   },
+
+  async updatePassphraseUI() {
+    const badge = document.getElementById('passphrase-status-badge');
+    const disconnectBtn = document.getElementById('btn-passphrase-disconnect');
+    const passInput = document.getElementById('input-passphrase');
+    const sheetsInput = document.getElementById('input-sheets-id');
+
+    const phrase = await App.DB.getSetting('householdPassphrase');
+    const scriptUrl = await App.DB.getSetting('googleSheetsId');
+
+    if (passInput && phrase && !passInput.value) passInput.value = phrase;
+    if (sheetsInput && scriptUrl && !sheetsInput.value) sheetsInput.value = scriptUrl;
+
+    if (badge) {
+      if (phrase) {
+        badge.innerHTML = `🟢 <strong>Připojeno k domácnosti:</strong> <code style="background:var(--surface); padding:2px 6px; border-radius:4px;">${phrase}</code>`;
+        if (disconnectBtn) disconnectBtn.classList.remove('hidden');
+      } else {
+        badge.innerHTML = `⚪ Nepřipojeno k žádné domácnosti`;
+        if (disconnectBtn) disconnectBtn.classList.add('hidden');
+      }
+    }
+  },
   
   setupSyncUI() {
+    const btnLogin = document.getElementById('btn-passphrase-login');
+    const btnSave = document.getElementById('btn-passphrase-save');
+    const btnDisconnect = document.getElementById('btn-passphrase-disconnect');
+    
+    if (btnLogin) btnLogin.addEventListener('click', () => this.loginWithPassphrase());
+    if (btnSave) btnSave.addEventListener('click', () => this.saveToPassphrase());
+    if (btnDisconnect) btnDisconnect.addEventListener('click', () => this.disconnectPassphrase());
+
     const btnUpload = document.getElementById('btn-sync-upload');
     const btnDownload = document.getElementById('btn-sync-download');
-    if (btnUpload) btnUpload.addEventListener('click', () => this.syncToSheets());
-    if (btnDownload) btnDownload.addEventListener('click', () => this.syncFromSheets());
+    if (btnUpload) btnUpload.addEventListener('click', () => this.saveToPassphrase());
+    if (btnDownload) btnDownload.addEventListener('click', () => this.loginWithPassphrase());
+
+    this.updatePassphraseUI();
     this.updateLastSyncUI();
   }
 };

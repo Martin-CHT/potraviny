@@ -10,17 +10,28 @@ App.Items = {
   },
 
   async addItem(itemData) {
+    const rawName = itemData.name ? itemData.name.trim() : 'Nová potravina';
+    const cleanName = App.AI ? App.AI.normalizeToCzech(rawName, itemData.category) : rawName;
+    const category = itemData.category || (App.AI ? App.AI.classifyItem(cleanName) : 'ostatni');
+    const location = itemData.location || (App.AI ? App.AI.suggestLocation(cleanName, category) : 'spiz');
+
+    // Nutriční hodnoty - automaticky doplnit z AI pokud chybí
+    let nutrition = itemData.nutrition;
+    if (!nutrition || (!nutrition.energy && !nutrition.fat && !nutrition.carbs && !nutrition.protein)) {
+      nutrition = App.AI ? App.AI.predictNutrition(cleanName, category) : null;
+    }
+
     const item = {
       id: itemData.id || crypto.randomUUID(),
-      name: itemData.name.trim(),
-      category: itemData.category || 'ostatni',
-      location: itemData.location || 'spiz',
+      name: cleanName,
+      category: category,
+      location: location,
       quantity: parseFloat(itemData.quantity) || 1,
       unit: itemData.unit || 'ks',
       expirations: itemData.expirations || [],
       barcode: itemData.barcode || '',
       imageUrl: itemData.imageUrl || '',
-      nutrition: itemData.nutrition || null,
+      nutrition: nutrition,
       price: itemData.price !== undefined && itemData.price !== null && itemData.price !== '' ? parseFloat(itemData.price) : null,
       priceManuallySet: !!itemData.priceManuallySet,
       priceLastUpdated: itemData.price ? new Date().toISOString() : null,
@@ -383,15 +394,19 @@ App.Items = {
     const nutInfo = document.getElementById('detail-nutrition-info');
     const nutContainer = document.getElementById('nutrition-container');
     if (nutInfo && nutContainer) {
-      if (item.nutrition && (item.nutrition.energy || item.nutrition.fat || item.nutrition.carbs || item.nutrition.protein)) {
+      let nut = item.nutrition;
+      if (!nut || (!nut.energy && !nut.fat && !nut.carbs && !nut.protein)) {
+        nut = App.AI ? App.AI.predictNutrition(item.name, item.category) : null;
+      }
+      if (nut) {
         nutInfo.classList.remove('hidden');
         nutContainer.innerHTML = `
-          <div><strong>Energie:</strong> ${item.nutrition.energy || '-'} kcal</div>
-          <div><strong>Tuky:</strong> ${item.nutrition.fat || '-'} g</div>
-          <div><strong>Sacharidy:</strong> ${item.nutrition.carbs || '-'} g</div>
-          <div><strong>Bílkoviny:</strong> ${item.nutrition.protein || '-'} g</div>
-          <div><strong>Vláknina:</strong> ${item.nutrition.fiber || '-'} g</div>
-          <div><strong>Sůl:</strong> ${item.nutrition.salt || '-'} g</div>
+          <div><strong>Energie:</strong> ${nut.energy ?? '-'} kcal</div>
+          <div><strong>Tuky:</strong> ${nut.fat ?? '-'} g</div>
+          <div><strong>Sacharidy:</strong> ${nut.carbs ?? '-'} g</div>
+          <div><strong>Bílkoviny:</strong> ${nut.protein ?? '-'} g</div>
+          <div><strong>Vláknina:</strong> ${nut.fiber ?? '-'} g</div>
+          <div><strong>Sůl:</strong> ${nut.salt ?? '-'} g</div>
         `;
       } else {
         nutInfo.classList.add('hidden');
@@ -487,13 +502,14 @@ App.Items = {
     document.getElementById('input-price-manual').checked = !!item.priceManuallySet;
     document.getElementById('item-notes').value = item.notes || '';
 
-    if (item.nutrition) {
-      if (document.getElementById('input-nut-energy')) document.getElementById('input-nut-energy').value = item.nutrition.energy || '';
-      if (document.getElementById('input-nut-fat')) document.getElementById('input-nut-fat').value = item.nutrition.fat || '';
-      if (document.getElementById('input-nut-carbs')) document.getElementById('input-nut-carbs').value = item.nutrition.carbs || '';
-      if (document.getElementById('input-nut-protein')) document.getElementById('input-nut-protein').value = item.nutrition.protein || '';
-      if (document.getElementById('input-nut-fiber')) document.getElementById('input-nut-fiber').value = item.nutrition.fiber || '';
-      if (document.getElementById('input-nut-salt')) document.getElementById('input-nut-salt').value = item.nutrition.salt || '';
+    const nut = item.nutrition || (App.AI ? App.AI.predictNutrition(item.name, item.category) : null);
+    if (nut) {
+      if (document.getElementById('input-nut-energy')) document.getElementById('input-nut-energy').value = nut.energy ?? '';
+      if (document.getElementById('input-nut-fat')) document.getElementById('input-nut-fat').value = nut.fat ?? '';
+      if (document.getElementById('input-nut-carbs')) document.getElementById('input-nut-carbs').value = nut.carbs ?? '';
+      if (document.getElementById('input-nut-protein')) document.getElementById('input-nut-protein').value = nut.protein ?? '';
+      if (document.getElementById('input-nut-fiber')) document.getElementById('input-nut-fiber').value = nut.fiber ?? '';
+      if (document.getElementById('input-nut-salt')) document.getElementById('input-nut-salt').value = nut.salt ?? '';
     }
 
     App.Main.renderExpirationRows(item.expirations);

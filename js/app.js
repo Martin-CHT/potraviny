@@ -80,13 +80,12 @@ App.Main = {
       targetView.classList.add('active');
     }
     
-    document.querySelectorAll('.bottom-nav-item').forEach(el => {
+    document.querySelectorAll('.bottom-nav-item, .desktop-nav-item').forEach(el => {
       el.classList.remove('active');
     });
-    const targetNavItem = document.querySelector(`.bottom-nav-item[data-view="${viewId}"]`);
-    if (targetNavItem) {
-      targetNavItem.classList.add('active');
-    }
+    document.querySelectorAll(`[data-view="${viewId}"]`).forEach(el => {
+      el.classList.add('active');
+    });
 
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -168,7 +167,7 @@ App.Main = {
   },
   
   setupNavigation() {
-    document.querySelectorAll('.bottom-nav-item').forEach(item => {
+    document.querySelectorAll('.bottom-nav-item, .desktop-nav-item').forEach(item => {
       item.addEventListener('click', (e) => {
         e.preventDefault();
         const view = item.dataset.view;
@@ -217,6 +216,11 @@ App.Main = {
         if (title) title.textContent = 'Přidat potravinu';
         document.getElementById('form-add-item').reset();
         document.getElementById('item-id').value = '';
+        if (document.getElementById('item-category')) delete document.getElementById('item-category').dataset.userModified;
+        if (document.getElementById('item-location')) delete document.getElementById('item-location').dataset.userModified;
+        ['input-nut-energy', 'input-nut-fat', 'input-nut-carbs', 'input-nut-protein', 'input-nut-fiber', 'input-nut-salt'].forEach(id => {
+          if (document.getElementById(id)) delete document.getElementById(id).dataset.autofilled;
+        });
         this.renderExpirationRows([]);
         this.showModal('modal-add-item');
       });
@@ -279,6 +283,76 @@ App.Main = {
     const form = document.getElementById('form-add-item');
     const saveBtn = document.getElementById('btn-save-item');
     const addExpBtn = document.getElementById('btn-add-expiration');
+    const nameInput = document.getElementById('item-name');
+    const catSelect = document.getElementById('item-category');
+    const locSelect = document.getElementById('item-location');
+
+    const autoFillNutrition = () => {
+      const name = nameInput ? nameInput.value.trim() : '';
+      const cat = catSelect ? catSelect.value : 'ostatni';
+      if (!name) return;
+
+      const nut = App.AI ? App.AI.predictNutrition(name, cat) : null;
+      if (nut) {
+        const setIfEmpty = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && (!el.value || el.dataset.autofilled === 'true')) {
+            el.value = val !== undefined && val !== null ? val : '';
+            el.dataset.autofilled = 'true';
+          }
+        };
+        setIfEmpty('input-nut-energy', nut.energy);
+        setIfEmpty('input-nut-fat', nut.fat);
+        setIfEmpty('input-nut-carbs', nut.carbs);
+        setIfEmpty('input-nut-protein', nut.protein);
+        setIfEmpty('input-nut-fiber', nut.fiber);
+        setIfEmpty('input-nut-salt', nut.salt);
+      }
+    };
+
+    // Listeners for manual input on nutrition fields to remove autofilled flag
+    ['input-nut-energy', 'input-nut-fat', 'input-nut-carbs', 'input-nut-protein', 'input-nut-fiber', 'input-nut-salt'].forEach(id => {
+      document.getElementById(id)?.addEventListener('input', (e) => {
+        delete e.target.dataset.autofilled;
+      });
+    });
+
+    if (nameInput) {
+      nameInput.addEventListener('blur', () => {
+        const name = nameInput.value.trim();
+        if (name && App.AI) {
+          // Auto-suggest category and location if not modified
+          const predictedCat = App.AI.classifyItem(name);
+          if (catSelect && (!catSelect.dataset.userModified || catSelect.dataset.userModified === 'false')) {
+            catSelect.value = predictedCat;
+          }
+          const predictedLoc = App.AI.suggestLocation(name, catSelect ? catSelect.value : predictedCat);
+          if (locSelect && (!locSelect.dataset.userModified || locSelect.dataset.userModified === 'false')) {
+            locSelect.value = predictedLoc;
+          }
+        }
+        autoFillNutrition();
+      });
+
+      nameInput.addEventListener('input', () => {
+        // debounce autofill
+        clearTimeout(nameInput._nutTimeout);
+        nameInput._nutTimeout = setTimeout(autoFillNutrition, 400);
+      });
+    }
+
+    if (catSelect) {
+      catSelect.addEventListener('change', () => {
+        catSelect.dataset.userModified = 'true';
+        autoFillNutrition();
+      });
+    }
+
+    if (locSelect) {
+      locSelect.addEventListener('change', () => {
+        locSelect.dataset.userModified = 'true';
+      });
+    }
 
     if (addExpBtn) {
       addExpBtn.addEventListener('click', () => {

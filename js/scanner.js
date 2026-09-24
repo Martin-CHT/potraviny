@@ -71,28 +71,35 @@ App.Scanner = {
       if (!data || !data.product) return null;
       const p = data.product;
 
-      // Získat nejlepší název (CZ > obecný > značka)
-      let name = p.product_name_cs || p.product_name || p.generic_name_cs || p.generic_name || '';
-      if (p.brands && name && !name.toLowerCase().includes(p.brands.toLowerCase())) {
-        name = `${name} (${p.brands})`;
-      }
+      // Získat název (CZ > obecný > značka)
+      let rawName = p.product_name_cs || p.product_name || p.generic_name_cs || p.generic_name || '';
+      
+      // Normalizovat na čistý český název
+      const name = App.AI ? App.AI.normalizeToCzech(rawName, null, p.brands || '') : (rawName || 'Potravina');
+      const category = App.AI ? App.AI.classifyItem(name) : 'ostatni';
+      const location = App.AI ? App.AI.suggestLocation(name, category) : 'spiz';
 
       const imageUrl = p.image_front_url || p.image_url || p.image_small_url || '';
       
+      // Získat nutriční hodnoty z Open Food Facts nebo predikovat
+      const predictedNut = App.AI ? App.AI.predictNutrition(name, category) : {};
+      const nutrition = {
+        energy: p.nutriments?.['energy-kcal_100g'] || p.nutriments?.['energy-kcal'] || predictedNut.energy || null,
+        fat: p.nutriments?.fat_100g !== undefined && p.nutriments?.fat_100g !== null ? p.nutriments.fat_100g : (predictedNut.fat ?? null),
+        carbs: p.nutriments?.carbohydrates_100g !== undefined && p.nutriments?.carbohydrates_100g !== null ? p.nutriments.carbohydrates_100g : (predictedNut.carbs ?? null),
+        protein: p.nutriments?.proteins_100g !== undefined && p.nutriments?.proteins_100g !== null ? p.nutriments.proteins_100g : (predictedNut.protein ?? null),
+        fiber: p.nutriments?.fiber_100g !== undefined && p.nutriments?.fiber_100g !== null ? p.nutriments.fiber_100g : (predictedNut.fiber ?? null),
+        salt: p.nutriments?.salt_100g !== undefined && p.nutriments?.salt_100g !== null ? p.nutriments.salt_100g : (predictedNut.salt ?? null)
+      };
+
       return {
         barcode: barcode,
-        name: name || 'Neznámý produkt',
+        name: name,
         brand: p.brands || '',
-        categoryTags: p.categories_tags || [],
+        category: category,
+        location: location,
         imageUrl: imageUrl,
-        nutrition: {
-          energy: p.nutriments?.['energy-kcal_100g'] || p.nutriments?.['energy-kcal'] || null,
-          fat: p.nutriments?.fat_100g || null,
-          carbs: p.nutriments?.carbohydrates_100g || null,
-          protein: p.nutriments?.proteins_100g || null,
-          fiber: p.nutriments?.fiber_100g || null,
-          salt: p.nutriments?.salt_100g || null
-        },
+        nutrition: nutrition,
         quantity: 1,
         unit: 'ks'
       };
@@ -105,8 +112,6 @@ App.Scanner = {
   async lookupBarcode(barcode) {
     let product = await this.lookupOpenFoodFacts(barcode);
     if (product) {
-      product.category = App.AI ? App.AI.classifyItem(product.name) : 'ostatni';
-      product.location = App.AI ? App.AI.suggestLocation(product.name, product.category) : 'spiz';
       return product;
     }
 
@@ -116,6 +121,7 @@ App.Scanner = {
       name: '',
       category: 'ostatni',
       location: 'spiz',
+      nutrition: App.AI ? App.AI.predictNutrition('', 'ostatni') : null,
       notFound: true
     };
   },
