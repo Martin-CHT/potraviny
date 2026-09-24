@@ -74,7 +74,7 @@ Díky tomuto řešení získáte **plnohodnotný cloudový backend zcela zdarma*
 ### Krok 2: Vložení kódu do Apps Script
 
 1. V horním menu tabulky klikněte na **Rozšíření → Apps Script** (*Extensions → Apps Script*).
-2. Smažte veškerý výchozí kód v editoru (`myFunction`) a vložte kompletní skript ze souboru [Apps Script.txt](potraviny/Apps Script.txt at main · Martin-CHT/potraviny · GitHub).
+2. Smažte veškerý výchozí kód v editoru (`myFunction`) a vložte kompletní skript ze souboru [Apps Script.txt](Apps Script.txt).
 3. Klikněte na ikonu **Uložit** (💾).
 
 ### Krok 3: Nasazení Webové aplikace (Web App)
