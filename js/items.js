@@ -4,9 +4,12 @@ App.Items = {
   items: [],
   currentSort: { field: 'name', direction: 'asc' },
   currentFilters: { category: 'all', location: 'all', search: '' },
+  viewMode: 'grid', // 'grid' | 'table'
 
   async loadItems() {
     this.items = await App.DB.getAll('items') || [];
+    const savedView = await App.DB.getSetting('defaultView');
+    this.viewMode = (savedView === 'table' || savedView === 'list') ? 'table' : 'grid';
   },
 
   async addItem(itemData) {
@@ -141,6 +144,26 @@ App.Items = {
     }
   },
 
+  // Rychlé spotřebování jedním klepnutím
+  async quickConsume(id, quantity = 1) {
+    const item = this.items.find(i => i.id === id);
+    if (!item) return;
+
+    const qtyToConsume = Math.min(item.quantity, quantity);
+    const prevQty = item.quantity;
+    await this.consumeItem(id, qtyToConsume);
+
+    const remaining = Math.max(0, prevQty - qtyToConsume);
+    if (App.Main) {
+      if (remaining === 0) {
+        App.Main.showToast(`Potravina "${item.name}" byla spotřebována`, 'success', 2000);
+      } else {
+        App.Main.showToast(`Spotřebováno 1 ${this.getUnitLabel(item.unit)} "${item.name}" (zbývá ${remaining})`, 'success', 2000);
+      }
+    }
+    this.renderItems();
+  },
+
   async wasteItem(id, quantity) {
     const item = this.items.find(i => i.id === id);
     if (!item) return;
@@ -165,6 +188,32 @@ App.Items = {
     }
   },
 
+  // Otevření celoobrazovkového zobrazení fotky
+  openImageViewer(imageUrl, title = '') {
+    if (!imageUrl) return;
+    const img = document.getElementById('image-viewer-img');
+    const titleEl = document.getElementById('image-viewer-title');
+    if (img) img.src = imageUrl;
+    if (titleEl) titleEl.textContent = title || 'Fotka potraviny';
+    if (App.Main) App.Main.showModal('modal-image-viewer');
+  },
+
+  // Přepnutí režimu zobrazení: 'grid' (karty) nebo 'table' (tabulka)
+  async setViewMode(mode) {
+    this.viewMode = (mode === 'table' || mode === 'list') ? 'table' : 'grid';
+    await App.DB.setSetting('defaultView', this.viewMode);
+    
+    const btnCards = document.getElementById('btn-view-cards');
+    const btnTable = document.getElementById('btn-view-table');
+    const toggleSetting = document.getElementById('toggle-default-view');
+
+    if (btnCards) btnCards.classList.toggle('active', this.viewMode === 'grid');
+    if (btnTable) btnTable.classList.toggle('active', this.viewMode === 'table');
+    if (toggleSetting) toggleSetting.checked = this.viewMode === 'table';
+
+    this.renderItems();
+  },
+
   getFilteredAndSorted() {
     let result = [...this.items];
 
@@ -179,27 +228,43 @@ App.Items = {
     if (this.currentFilters.search) {
       const query = this.currentFilters.search.toLowerCase().trim();
       result = result.filter(i => 
-        i.name.toLowerCase().includes(query) || 
+        (i.name && i.name.toLowerCase().includes(query)) || 
         (i.notes && i.notes.toLowerCase().includes(query)) ||
         (i.barcode && i.barcode.includes(query))
       );
     }
 
     result.sort((a, b) => {
-      let valA = a[this.currentSort.field];
-      let valB = b[this.currentSort.field];
-      
-      if (this.currentSort.field === 'expiration') {
-        const expA = a.expirations && a.expirations.length > 0 ? new Date(Math.min(...a.expirations.map(e => new Date(e.date).getTime()))) : new Date('2099-01-01');
-        const expB = b.expirations && b.expirations.length > 0 ? new Date(Math.min(...b.expirations.map(e => new Date(e.date).getTime()))) : new Date('2099-01-01');
-        valA = expA.getTime();
-        valB = expB.getTime();
+      const field = this.currentSort.field;
+      let valA, valB;
+
+      if (field === 'expiration') {
+        valA = a.expirations && a.expirations.length > 0 ? new Date(Math.min(...a.expirations.map(e => new Date(e.date).getTime()))).getTime() : new Date('2099-01-01').getTime();
+        valB = b.expirations && b.expirations.length > 0 ? new Date(Math.min(...b.expirations.map(e => new Date(e.date).getTime()))).getTime() : new Date('2099-01-01').getTime();
+      } else if (field === 'category') {
+        valA = this.getCategoryLabel(a.category);
+        valB = this.getCategoryLabel(b.category);
+      } else if (field === 'location') {
+        valA = this.getLocationLabel(a.location);
+        valB = this.getLocationLabel(b.location);
+      } else if (field === 'quantity') {
+        valA = parseFloat(a.quantity) || 0;
+        valB = parseFloat(b.quantity) || 0;
+      } else if (field === 'price') {
+        valA = parseFloat(a.price) || 0;
+        valB = parseFloat(b.price) || 0;
+      } else if (field === 'addedDate') {
+        valA = new Date(a.addedDate || 0).getTime();
+        valB = new Date(b.addedDate || 0).getTime();
+      } else {
+        valA = a.name || '';
+        valB = b.name || '';
       }
 
       if (valA === undefined || valA === null) valA = this.currentSort.direction === 'asc' ? Infinity : -Infinity;
       if (valB === undefined || valB === null) valB = this.currentSort.direction === 'asc' ? Infinity : -Infinity;
 
-      if (typeof valA === 'string') {
+      if (typeof valA === 'string' && typeof valB === 'string') {
         return this.currentSort.direction === 'asc' ? valA.localeCompare(valB, 'cs') : valB.localeCompare(valA, 'cs');
       }
 
@@ -218,7 +283,46 @@ App.Items = {
 
   setSort(field, direction) {
     this.currentSort = { field, direction };
+    this.updateSortUI();
     this.renderItems();
+  },
+
+  toggleSort(field) {
+    if (this.currentSort.field === field) {
+      this.currentSort.direction = this.currentSort.direction === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.currentSort.field = field;
+      this.currentSort.direction = (field === 'expiration' || field === 'addedDate' || field === 'price') ? 'asc' : 'asc';
+    }
+    this.updateSortUI();
+    this.renderItems();
+  },
+
+  getSortLabel() {
+    const map = {
+      'name_asc': 'Název (A-Z)',
+      'name_desc': 'Název (Z-A)',
+      'expiration_asc': 'Datum spotřeby (nejbližší)',
+      'expiration_desc': 'Datum spotřeby (nejpozdější)',
+      'addedDate_desc': 'Datum přidání (nejnovější)',
+      'addedDate_asc': 'Datum přidání (nejstarší)',
+      'category_asc': 'Kategorie (A-Z)',
+      'category_desc': 'Kategorie (Z-A)',
+      'location_asc': 'Umístění (A-Z)',
+      'location_desc': 'Umístění (Z-A)',
+      'price_asc': 'Cena (nejnižší)',
+      'price_desc': 'Cena (nejvyšší)',
+      'quantity_asc': 'Množství (nejméně)',
+      'quantity_desc': 'Množství (nejvíce)'
+    };
+    return map[`${this.currentSort.field}_${this.currentSort.direction}`] || `${this.currentSort.field} (${this.currentSort.direction})`;
+  },
+
+  updateSortUI() {
+    const textEl = document.getElementById('current-sort-text');
+    if (textEl) {
+      textEl.textContent = `Řazení: ${this.getSortLabel()}`;
+    }
   },
 
   renderItems() {
@@ -236,34 +340,112 @@ App.Items = {
 
     if (emptyState) emptyState.classList.add('hidden');
 
-    container.innerHTML = items.map(item => {
-      const expStatus = this.getExpirationStatus(item);
-      const emoji = this.getCategoryEmoji(item.category);
-      const priceText = item.price ? `${item.price.toFixed(1)} Kč` : '';
-      
-      return `
-        <div class='item-card' data-id='${item.id}' data-category='${item.category}' onclick="App.Items.openDetailModal('${item.id}')">
-          <div class='item-card-image'>
-            ${item.imageUrl ? `<img src="${item.imageUrl}" style="width:100%; height:100%; object-fit:cover;">` : emoji}
-          </div>
-          <div class='item-card-content'>
-            <h3 class='item-card-name' title="${item.name}">${item.name}</h3>
-            <div style="display:flex; gap:4px; margin-bottom:4px; flex-wrap:wrap;">
-              <span class='item-card-category'>${this.getCategoryLabel(item.category)}</span>
-              <span class='item-card-location'>${this.getLocationLabel(item.location)}</span>
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto;">
-              <span class='item-card-quantity'>${item.quantity} ${this.getUnitLabel(item.unit)}</span>
-              <span class='item-card-price'>${priceText}</span>
-            </div>
-            <div class='item-card-expiration exp-${expStatus.status} ${expStatus.isBestBefore ? 'exp-best-before' : ''}'>
-              ${expStatus.text}
-            </div>
-          </div>
-          <span class='item-card-qty-badge'>${item.quantity} ${this.getUnitLabel(item.unit)}</span>
-        </div>
+    // TABULKOVÉ ROZHRANÍ
+    if (this.viewMode === 'table') {
+      const getSortArrow = (field) => {
+        if (this.currentSort.field !== field) return '<span style="color:var(--text-secondary); opacity:0.5; font-size:0.75rem;">↕</span>';
+        return this.currentSort.direction === 'asc' ? '<span style="color:var(--primary); font-size:0.75rem;">▲</span>' : '<span style="color:var(--primary); font-size:0.75rem;">▼</span>';
+      };
+
+      container.className = 'inventory-table-container';
+      container.innerHTML = `
+        <table class="inventory-table">
+          <thead>
+            <tr>
+              <th style="width: 44px; text-align: center;">Foto</th>
+              <th class="col-sortable" onclick="App.Items.toggleSort('name')" title="Klikněte pro seřazení dle názvu">Název ${getSortArrow('name')}</th>
+              <th class="col-sortable" onclick="App.Items.toggleSort('category')" title="Klikněte pro seřazení dle kategorie">Kategorie ${getSortArrow('category')}</th>
+              <th class="col-sortable" onclick="App.Items.toggleSort('location')" title="Klikněte pro seřazení dle umístění">Umístění ${getSortArrow('location')}</th>
+              <th class="col-sortable" onclick="App.Items.toggleSort('quantity')" title="Klikněte pro seřazení dle množství">Množství ${getSortArrow('quantity')}</th>
+              <th class="col-sortable" onclick="App.Items.toggleSort('price')" title="Klikněte pro seřazení dle ceny">Cena ${getSortArrow('price')}</th>
+              <th class="col-sortable" onclick="App.Items.toggleSort('expiration')" title="Klikněte pro seřazení dle expirace">Expirace ${getSortArrow('expiration')}</th>
+              <th style="text-align: right; width: 100px;">Akce</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(item => {
+              const expStatus = this.getExpirationStatus(item);
+              const emoji = this.getCategoryEmoji(item.category);
+              const priceText = item.price ? `${item.price.toFixed(1)} Kč` : '-';
+              const cleanNameEscaped = (item.name || '').replace(/'/g, "\\'");
+
+              return `
+                <tr data-id="${item.id}" onclick="App.Items.openDetailModal('${item.id}')">
+                  <td style="text-align: center; padding: 6px;" onclick="event.stopPropagation();">
+                    ${item.imageUrl 
+                      ? `<img src="${item.imageUrl}" class="table-thumbnail" onclick="App.Items.openImageViewer('${item.imageUrl}', '${cleanNameEscaped}')" title="Klikněte pro zobrazení celé fotky">`
+                      : `<span class="table-emoji">${emoji}</span>`
+                    }
+                  </td>
+                  <td style="font-weight: 600; color: var(--text-primary);">
+                    ${item.name}
+                  </td>
+                  <td>
+                    <span class="badge" style="background:var(--background); color:var(--text-secondary); border:1px solid var(--border);">${this.getCategoryLabel(item.category)}</span>
+                  </td>
+                  <td>
+                    <span style="font-size: 0.85rem;">${this.getLocationLabel(item.location)}</span>
+                  </td>
+                  <td style="font-weight: 600;">
+                    ${item.quantity} ${this.getUnitLabel(item.unit)}
+                  </td>
+                  <td style="color: var(--text-secondary);">
+                    ${priceText}
+                  </td>
+                  <td>
+                    <span class="badge exp-${expStatus.status} ${expStatus.isBestBefore ? 'exp-best-before' : ''}" style="font-size: 0.8rem; padding: 3px 8px;">
+                      ${expStatus.text}
+                    </span>
+                  </td>
+                  <td style="text-align: right;" onclick="event.stopPropagation();">
+                    <button type="button" class="btn-quick-consume" onclick="App.Items.quickConsume('${item.id}', 1)" title="Rychle spotřebovat 1 kus">
+                      ⚡ -1 ks
+                    </button>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
       `;
-    }).join('');
+    } else {
+      // GRID / KARTY ROZHRANÍ
+      container.className = 'grid-container';
+      container.innerHTML = items.map(item => {
+        const expStatus = this.getExpirationStatus(item);
+        const emoji = this.getCategoryEmoji(item.category);
+        const priceText = item.price ? `${item.price.toFixed(1)} Kč` : '';
+        const cleanNameEscaped = (item.name || '').replace(/'/g, "\\'");
+
+        return `
+          <div class='item-card' data-id='${item.id}' data-category='${item.category}' onclick="App.Items.openDetailModal('${item.id}')">
+            <div class='item-card-image' ${item.imageUrl ? `onclick="event.stopPropagation(); App.Items.openImageViewer('${item.imageUrl}', '${cleanNameEscaped}')" title="Klikněte pro zobrazení celé fotky"` : ''}>
+              ${item.imageUrl ? `<img src="${item.imageUrl}" style="width:100%; height:100%; object-fit:cover;"><span class="zoom-badge" title="Zvětšit fotku">🔍</span>` : emoji}
+            </div>
+            <div class='item-card-content'>
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
+                <h3 class='item-card-name' title="${item.name}">${item.name}</h3>
+                <button type="button" class="btn-quick-consume" onclick="event.stopPropagation(); App.Items.quickConsume('${item.id}', 1)" title="Rychle spotřebovat 1 kus">
+                  ⚡ -1
+                </button>
+              </div>
+              <div style="display:flex; gap:4px; margin-bottom:4px; flex-wrap:wrap;">
+                <span class='item-card-category'>${this.getCategoryLabel(item.category)}</span>
+                <span class='item-card-location'>${this.getLocationLabel(item.location)}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto;">
+                <span class='item-card-quantity'>${item.quantity} ${this.getUnitLabel(item.unit)}</span>
+                <span class='item-card-price'>${priceText}</span>
+              </div>
+              <div class='item-card-expiration exp-${expStatus.status} ${expStatus.isBestBefore ? 'exp-best-before' : ''}'>
+                ${expStatus.text}
+              </div>
+            </div>
+            <span class='item-card-qty-badge'>${item.quantity} ${this.getUnitLabel(item.unit)}</span>
+          </div>
+        `;
+      }).join('');
+    }
   },
 
   getExpirationStatus(item) {
@@ -319,8 +501,14 @@ App.Items = {
       if (item.imageUrl) {
         imgEl.src = item.imageUrl;
         imgEl.classList.remove('hidden');
+        imgEl.style.cursor = 'zoom-in';
+        imgEl.title = 'Klikněte pro zobrazení celé fotky';
+        imgEl.onclick = () => {
+          this.openImageViewer(item.imageUrl, item.name);
+        };
       } else {
         imgEl.classList.add('hidden');
+        imgEl.onclick = null;
       }
     }
 
@@ -425,6 +613,14 @@ App.Items = {
     }
 
     // Action buttons
+    const quickConsumeBtn = document.getElementById('btn-detail-quick-consume');
+    if (quickConsumeBtn) {
+      quickConsumeBtn.onclick = async () => {
+        App.Main.hideModal('modal-item-detail');
+        await this.quickConsume(id, 1);
+      };
+    }
+
     const editBtn = document.getElementById('btn-detail-edit');
     if (editBtn) {
       editBtn.onclick = () => {
@@ -569,6 +765,27 @@ App.Items = {
     });
   },
 
+  setupViewModeToggle() {
+    const btnCards = document.getElementById('btn-view-cards');
+    const btnTable = document.getElementById('btn-view-table');
+
+    if (btnCards) {
+      btnCards.addEventListener('click', () => {
+        this.setViewMode('grid');
+      });
+    }
+
+    if (btnTable) {
+      btnTable.addEventListener('click', () => {
+        this.setViewMode('table');
+      });
+    }
+
+    // Nastavit výchozí stav tlačítek
+    if (btnCards) btnCards.classList.toggle('active', this.viewMode === 'grid');
+    if (btnTable) btnTable.classList.toggle('active', this.viewMode === 'table');
+  },
+
   setupSortModal() {
     const btnSort = document.getElementById('btn-sort');
     if (btnSort) {
@@ -585,27 +802,23 @@ App.Items = {
           const val = selectedRadio.value;
           let field = 'name';
           let direction = 'asc';
-          let text = 'Dle názvu (A-Z)';
 
           switch (val) {
-            case 'name_asc': field = 'name'; direction = 'asc'; text = 'Název (A-Z)'; break;
-            case 'name_desc': field = 'name'; direction = 'desc'; text = 'Název (Z-A)'; break;
-            case 'exp_asc': field = 'expiration'; direction = 'asc'; text = 'Datum spotřeby (nejbližší)'; break;
-            case 'exp_desc': field = 'expiration'; direction = 'desc'; text = 'Datum spotřeby (nejpozdější)'; break;
-            case 'added_desc': field = 'addedDate'; direction = 'desc'; text = 'Datum přidání (nejnovější)'; break;
-            case 'added_asc': field = 'addedDate'; direction = 'asc'; text = 'Datum přidání (nejstarší)'; break;
-            case 'category': field = 'category'; direction = 'asc'; text = 'Kategorie'; break;
-            case 'location': field = 'location'; direction = 'asc'; text = 'Umístění'; break;
-            case 'price_asc': field = 'price'; direction = 'asc'; text = 'Cena (nejnižší)'; break;
-            case 'price_desc': field = 'price'; direction = 'desc'; text = 'Cena (nejvyšší)'; break;
-            case 'qty_asc': field = 'quantity'; direction = 'asc'; text = 'Množství (nejméně)'; break;
-            case 'qty_desc': field = 'quantity'; direction = 'desc'; text = 'Množství (nejvíce)'; break;
+            case 'name_asc': field = 'name'; direction = 'asc'; break;
+            case 'name_desc': field = 'name'; direction = 'desc'; break;
+            case 'exp_asc': field = 'expiration'; direction = 'asc'; break;
+            case 'exp_desc': field = 'expiration'; direction = 'desc'; break;
+            case 'added_desc': field = 'addedDate'; direction = 'desc'; break;
+            case 'added_asc': field = 'addedDate'; direction = 'asc'; break;
+            case 'category': field = 'category'; direction = 'asc'; break;
+            case 'location': field = 'location'; direction = 'asc'; break;
+            case 'price_asc': field = 'price'; direction = 'asc'; break;
+            case 'price_desc': field = 'price'; direction = 'desc'; break;
+            case 'qty_asc': field = 'quantity'; direction = 'asc'; break;
+            case 'qty_desc': field = 'quantity'; direction = 'desc'; break;
           }
 
           this.setSort(field, direction);
-          const currentSortText = document.getElementById('current-sort-text');
-          if (currentSortText) currentSortText.textContent = `Řazení: ${text}`;
-          
           App.Main.hideModal('modal-sort');
         }
       });
@@ -623,4 +836,3 @@ App.Items = {
     return count;
   }
 };
-

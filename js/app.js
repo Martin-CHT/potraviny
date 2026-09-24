@@ -14,6 +14,7 @@ App.Main = {
         App.Items.setupCategoryTabs();
         App.Items.setupLocationFilters();
         App.Items.setupSortModal();
+        App.Items.setupViewModeToggle();
       }
 
       if (App.Scanner && typeof App.Scanner.setupScannerUI === 'function') {
@@ -562,6 +563,21 @@ App.Main = {
     bindSetting('input-sheets-api-key', 'googleSheetsApiKey', false);
     bindSetting('input-ai-api-key', 'aiApiKey', false);
 
+    // Přepínač výchozího zobrazení (seznam/tabulka vs karty)
+    const toggleDefaultView = document.getElementById('toggle-default-view');
+    if (toggleDefaultView) {
+      toggleDefaultView.checked = settings.defaultView === 'table' || settings.defaultView === 'list';
+      toggleDefaultView.addEventListener('change', async (e) => {
+        const mode = e.target.checked ? 'table' : 'grid';
+        await App.DB.setSetting('defaultView', mode);
+        if (App.Items) {
+          await App.Items.setViewMode(mode);
+        }
+        App.Main.showToast(`Zobrazení nastaveno na ${mode === 'table' ? 'tabulku' : 'karty'}`, 'success', 1500);
+        window.dispatchEvent(new Event('app:settings-updated'));
+      });
+    }
+
     // Tlačítko Uložit nastavení
     const btnSaveSettings = document.getElementById('btn-save-settings');
     if (btnSaveSettings) {
@@ -679,7 +695,16 @@ App.Main = {
     setChecked('setting-waste', settings.wasteTrackerEnabled);
     setChecked('setting-notifications', settings.pushNotificationsEnabled);
     setChecked('toggle-auto-prices', settings.autoPricesEnabled);
-    setChecked('toggle-default-view', settings.defaultView === 'list');
+    
+    const isTableView = settings.defaultView === 'table' || settings.defaultView === 'list';
+    setChecked('toggle-default-view', isTableView);
+    if (App.Items) {
+      App.Items.viewMode = isTableView ? 'table' : 'grid';
+      const btnCards = document.getElementById('btn-view-cards');
+      const btnTable = document.getElementById('btn-view-table');
+      if (btnCards) btnCards.classList.toggle('active', !isTableView);
+      if (btnTable) btnTable.classList.toggle('active', isTableView);
+    }
 
     if (App.Sync && typeof App.Sync.updatePassphraseUI === 'function') {
       App.Sync.updatePassphraseUI();

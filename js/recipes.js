@@ -90,7 +90,7 @@ App.Recipes = {
   
   openReceptySearch(query) {
     if (!query) return;
-    const url = `https://www.recepty.cz/vyhledavani?dotaz=${encodeURIComponent(query.trim())}`;
+    const url = `https://www.recepty.cz/vyhledavani?text=${encodeURIComponent(query.trim())}`;
     window.open(url, '_blank');
   },
   

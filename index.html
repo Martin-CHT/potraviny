@@ -87,8 +87,14 @@
             </div>
 
             <div id="sort-bar">
-                <span id="current-sort-text">Řazení: Název (A-Z)</span>
-                <button id="btn-sort" class="btn-text">Změnit řazení ↕</button>
+                <div class="sort-info">
+                    <span id="current-sort-text">Řazení: Název (A-Z)</span>
+                    <button id="btn-sort" class="btn-text">Změnit ↕</button>
+                </div>
+                <div class="view-mode-toggle">
+                    <button type="button" id="btn-view-cards" class="view-toggle-btn active" title="Zobrazit jako karty">🔲 Karty</button>
+                    <button type="button" id="btn-view-table" class="view-toggle-btn" title="Zobrazit jako tabulku">📋 Tabulka</button>
+                </div>
             </div>
 
             <div id="items-container" class="grid-container"></div>
@@ -477,10 +483,25 @@
                 </div>
             </div>
             <div class="modal-footer action-buttons">
+                <button id="btn-detail-quick-consume" class="btn-primary" style="background:#27ae60;" title="Rychle spotřebovat 1 kus">⚡ Spotřebovat 1 ks</button>
                 <button id="btn-detail-edit" class="btn-primary">Upravit</button>
-                <button id="btn-detail-consume" class="btn-success">Spotřebovat</button>
+                <button id="btn-detail-consume" class="btn-success">Spotřebovat více...</button>
                 <button id="btn-detail-waste" class="btn-warning hidden">Vyhodit</button>
                 <button id="btn-detail-delete" class="btn-danger">Smazat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Full Image Viewer / Lightbox -->
+    <div id="modal-image-viewer" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content modal-image-content" style="max-width: 90vw; max-height: 90vh; padding: 16px; text-align: center; background: rgba(18, 18, 18, 0.95); color: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 8px;">
+                <h3 id="image-viewer-title" style="margin:0; font-size:1.1rem; color:#fff; font-weight:600;">Fotka potraviny</h3>
+                <button class="btn-close modal-close" style="color:#fff; font-size:1.6rem; opacity:0.8; cursor:pointer; background:none; border:none;">&times;</button>
+            </div>
+            <div style="max-height: calc(85vh - 60px); overflow: auto; display:flex; justify-content:center; align-items:center;">
+                <img id="image-viewer-img" src="" alt="Celá fotka" style="max-width: 100%; max-height: 72vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.6);">
             </div>
         </div>
     </div>
