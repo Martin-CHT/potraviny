@@ -846,6 +846,180 @@ ${ocrText}`;
     }
 
     return items;
+  },
+
+  // Mapy synonym pro sémantické vyhledávání
+  synonymMap: {
+    'ryba': ['treska', 'losos', 'kapr', 'pstruh', 'tuňák', 'tuna', 'makrela', 'tilapie', 'pangasius', 'filé', 'rybí', 'sardinky', 'sleď', 'šprot'],
+    'ryby': ['treska', 'losos', 'kapr', 'pstruh', 'tuňák', 'tuna', 'makrela', 'tilapie', 'pangasius', 'filé', 'rybí', 'sardinky', 'sleď', 'šprot'],
+    'maso': ['kuřecí', 'vepřové', 'hovězí', 'krůtí', 'kachní', 'mleté', 'šunka', 'salám', 'klobása', 'párek', 'slanina', 'bůček', 'panenka', 'krkovice', 'kotleta', 'steak'],
+    'pečivo': ['chléb', 'chleba', 'rohlík', 'houska', 'bageta', 'croissant', 'kaiserka', 'toast', 'toust', 'vánočka', 'kobliha', 'koláč', 'buchta'],
+    'tuk': ['máslo', 'hera', 'stela', 'rama', 'perla', 'zlatá haná', 'olej', 'sádlo', 'ceres', 'flora'],
+    'sýr': ['eidam', 'gouda', 'čedar', 'cheddar', 'mozzarella', 'parmezán', 'hermelín', 'camembert', 'niva', 'balkánský', 'lučina', 'žervé', 'tavený'],
+    'mléko': ['mléko', 'kefír', 'podmáslí', 'smetana', 'šlehačka', 'jogurt', 'tvaroh'],
+    'zelenina': ['rajče', 'okurka', 'paprika', 'mrkev', 'cibule', 'česnek', 'brambor', 'brambory', 'salát', 'špenát', 'brokolice', 'květák', 'cuketa', 'lilek', 'celer', 'petržel'],
+    'ovoce': ['jablko', 'banán', 'pomeranč', 'citron', 'mandarinka', 'jahody', 'maliny', 'borůvky', 'hrozny', 'kiwi', 'mango', 'meloun']
+  },
+
+  // Mapy náhradních surovin / alternativ (substitutes)
+  substituteMap: {
+    'hera': ['stela', 'rama', 'máslo', 'zlatá haná', 'perla', 'tuk na pečení'],
+    'stela': ['hera', 'rama', 'máslo', 'zlatá haná', 'perla'],
+    'rama': ['flora', 'perla', 'máslo', 'stela', 'hera'],
+    'máslo': ['pomazánkové máslo', 'ghí', 'přepuštěné máslo', 'hera', 'stela', 'rama'],
+    'smetana': ['zakysaná smetana', 'crème fraîche', 'řecký jogurt', 'šlehačka', 'mléko'],
+    'parmezán': ['gran moravia', 'grana padano', 'parmigiano', 'eidam 45%'],
+    'česnek': ['česneková pasta', 'sušený česnek'],
+    'cibule': ['šalotka', 'jarní cibulka', 'pórek'],
+    'cukr': ['med', 'třtinový cukr', 'sirup', 'stévie'],
+    'mouka': ['hladká mouka', 'polohrubá mouka', 'hrubá mouka', 'špaldová mouka'],
+    'droždí': ['kvasnice', 'prášek do pečiva', 'kypřicí prášek'],
+    'strouhanka': ['pečivo', 'rohlík', 'kukuřičná strouhanka']
+  },
+
+  stripDiacritics(str) {
+    if (!str) return '';
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  },
+
+  levenshteinDistance(a, b) {
+    const s1 = this.stripDiacritics(a);
+    const s2 = this.stripDiacritics(b);
+    if (s1 === s2) return 0;
+    if (s1.length === 0) return s2.length;
+    if (s2.length === 0) return s1.length;
+
+    const matrix = [];
+    for (let i = 0; i <= s2.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= s1.length; j++) matrix[0][j] = j;
+
+    for (let i = 1; i <= s2.length; i++) {
+      for (let j = 1; j <= s1.length; j++) {
+        if (s2.charAt(i - 1) === s1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1, // substitution
+            matrix[i][j - 1] + 1,     // insertion
+            matrix[i - 1][j] + 1      // deletion
+          );
+        }
+      }
+    }
+    return matrix[s2.length][s1.length];
+  },
+
+  // Inteligentní vyhledávání s podporou více výrazů, překlepů, synonym a náhrad
+  smartSearch(items, rawQuery) {
+    if (!rawQuery || !rawQuery.trim() || !items || items.length === 0) {
+      return { items: items || [], explanations: [] };
+    }
+
+    const cleanQuery = rawQuery.trim().toLowerCase();
+    const queryTerms = cleanQuery.split(/[\s,;+]+/).filter(t => t.length > 0);
+    const matchedMap = new Map(); // itemId -> item
+    const explanations = [];
+
+    queryTerms.forEach(term => {
+      const termNorm = this.stripDiacritics(term);
+      let termMatchedCount = 0;
+
+      items.forEach(item => {
+        const nameNorm = this.stripDiacritics(item.name || '');
+        const notesNorm = this.stripDiacritics(item.notes || '');
+        const barcodeNorm = this.stripDiacritics(item.barcode || '');
+        const categoryNorm = this.stripDiacritics(item.category || '');
+        const itemWords = nameNorm.split(/[\s\-_.,/]+/).filter(w => w.length > 0);
+
+        // 1. Přímá shoda (přesný podřetězec nebo čárový kód)
+        if (nameNorm.includes(termNorm) || notesNorm.includes(termNorm) || barcodeNorm.includes(termNorm) || categoryNorm.includes(termNorm)) {
+          matchedMap.set(item.id, item);
+          termMatchedCount++;
+          return;
+        }
+
+        // 2. Tolerance překlepů (Fuzzy Levenshtein) pro slova delší než 3 znaky
+        if (termNorm.length >= 4) {
+          for (let word of itemWords) {
+            if (word.length >= 3) {
+              const maxDist = termNorm.length >= 7 ? 2 : 1;
+              const dist = this.levenshteinDistance(termNorm, word);
+              if (dist <= maxDist) {
+                matchedMap.set(item.id, item);
+                termMatchedCount++;
+                explanations.push({
+                  term: term,
+                  match: item.name,
+                  type: 'fuzzy',
+                  note: `(opraven překlep "${term}" → "${item.name}")`
+                });
+                return;
+              }
+            }
+          }
+        }
+
+        // 3. Sémantická synonyma (např. "ryba" -> Treska, Losos...)
+        const synonyms = this.synonymMap[term] || this.synonymMap[termNorm];
+        if (synonyms) {
+          for (let syn of synonyms) {
+            const synNorm = this.stripDiacritics(syn);
+            if (nameNorm.includes(synNorm)) {
+              matchedMap.set(item.id, item);
+              termMatchedCount++;
+              explanations.push({
+                term: term,
+                match: item.name,
+                type: 'synonym',
+                note: `(rozpoznáno jako "${term}")`
+              });
+              return;
+            }
+          }
+        }
+      });
+
+      // 4. Pokud pro hledaný výraz nic nebylo nalezeno, vyzkoušet náhradní suroviny (substitutes)
+      // Např. hledám "hera", ale v zásobách je jen "Stela" nebo "Máslo"
+      if (termMatchedCount === 0) {
+        const substitutes = this.substituteMap[term] || this.substituteMap[termNorm];
+        if (substitutes) {
+          items.forEach(item => {
+            const nameNorm = this.stripDiacritics(item.name || '');
+            for (let sub of substitutes) {
+              const subNorm = this.stripDiacritics(sub);
+              if (nameNorm.includes(subNorm)) {
+                matchedMap.set(item.id, item);
+                termMatchedCount++;
+                explanations.push({
+                  term: term,
+                  match: item.name,
+                  type: 'substitute',
+                  note: `(nenalezeno "${term}" — nalezena alternativa: ${item.name})`
+                });
+                return;
+              }
+            }
+          });
+        }
+      }
+    });
+
+    // Unikátní vysvětlivky
+    const uniqueExplanations = [];
+    const seenExplanations = new Set();
+    explanations.forEach(exp => {
+      const key = `${exp.term}_${exp.match}`;
+      if (!seenExplanations.has(key)) {
+        seenExplanations.add(key);
+        uniqueExplanations.push(exp);
+      }
+    });
+
+    return {
+      items: Array.from(matchedMap.values()),
+      explanations: uniqueExplanations
+    };
   }
 };
 

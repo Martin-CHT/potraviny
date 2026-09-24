@@ -5,6 +5,8 @@ App.Items = {
   currentSort: { field: 'name', direction: 'asc' },
   currentFilters: { category: 'all', location: 'all', search: '' },
   viewMode: 'grid', // 'grid' | 'table'
+  selectedIds: new Set(),
+  searchExplanations: [],
 
   async loadItems() {
     this.items = await App.DB.getAll('items') || [];
@@ -85,6 +87,7 @@ App.Items = {
 
     await App.DB.delete('items', id);
     this.items = this.items.filter(i => i.id !== id);
+    this.selectedIds.delete(id);
 
     const settings = await App.DB.getAllSettings();
     if (settings.wasteTrackerEnabled) {
@@ -164,6 +167,24 @@ App.Items = {
     this.renderItems();
   },
 
+  // Rychlá úprava množství tlačítky + a - přímo v řádku/kartě
+  async updateQuantity(id, delta) {
+    const item = this.items.find(i => i.id === id);
+    if (!item) return;
+
+    if (delta < 0 && item.quantity <= Math.abs(delta)) {
+      if (confirm(`Množství položky "${item.name}" klesne na 0. Chcete ji spotřebovat?`)) {
+        await this.consumeItem(id, item.quantity);
+        this.renderItems();
+      }
+      return;
+    }
+
+    item.quantity = Math.max(0.001, parseFloat((item.quantity + delta).toFixed(2)));
+    await this.updateItem(item);
+    this.renderItems();
+  },
+
   async wasteItem(id, quantity) {
     const item = this.items.find(i => i.id === id);
     if (!item) return;
@@ -185,6 +206,137 @@ App.Items = {
       await this.deleteItem(id);
     } else {
       await this.updateItem(item);
+    }
+  },
+
+  // ==================== HROMADNÉ AKCE (BULK ACTIONS) ====================
+  toggleSelect(id) {
+    if (this.selectedIds.has(id)) {
+      this.selectedIds.delete(id);
+    } else {
+      this.selectedIds.add(id);
+    }
+    this.renderBulkBar();
+    this.updateCheckboxesUI();
+  },
+
+  toggleSelectAll(checked) {
+    const visibleItems = this.getFilteredAndSorted();
+    if (checked) {
+      visibleItems.forEach(i => this.selectedIds.add(i.id));
+    } else {
+      this.selectedIds.clear();
+    }
+    this.renderBulkBar();
+    this.updateCheckboxesUI();
+  },
+
+  clearSelection() {
+    this.selectedIds.clear();
+    this.renderBulkBar();
+    this.updateCheckboxesUI();
+  },
+
+  updateCheckboxesUI() {
+    document.querySelectorAll('.item-select-cb').forEach(cb => {
+      cb.checked = this.selectedIds.has(cb.dataset.id);
+    });
+
+    const masterCb = document.getElementById('cb-select-all');
+    if (masterCb) {
+      const visible = this.getFilteredAndSorted();
+      masterCb.checked = visible.length > 0 && visible.every(i => this.selectedIds.has(i.id));
+    }
+  },
+
+  renderBulkBar() {
+    const bar = document.getElementById('bulk-action-bar');
+    const countEl = document.getElementById('bulk-selected-count');
+    if (!bar) return;
+
+    const count = this.selectedIds.size;
+    if (count > 0) {
+      bar.classList.remove('hidden');
+      if (countEl) countEl.textContent = `${count} ${count === 1 ? 'položka vybrána' : count < 5 ? 'položky vybrány' : 'položek vybráno'}`;
+    } else {
+      bar.classList.add('hidden');
+    }
+  },
+
+  async bulkConsume() {
+    const ids = Array.from(this.selectedIds);
+    if (ids.length === 0) return;
+
+    if (App.Main) App.Main.showLoading();
+    for (let id of ids) {
+      await this.consumeItem(id, 1);
+    }
+    this.clearSelection();
+    if (App.Main) {
+      App.Main.hideLoading();
+      App.Main.showToast(`Spotřebováno 1 ks z ${ids.length} vybraných položek`, 'success', 2500);
+    }
+    this.renderItems();
+  },
+
+  async bulkMoveTo(locationKey) {
+    const ids = Array.from(this.selectedIds);
+    if (ids.length === 0) return;
+
+    if (App.Main) App.Main.showLoading();
+    for (let id of ids) {
+      const item = this.items.find(i => i.id === id);
+      if (item) {
+        item.location = locationKey;
+        await this.updateItem(item);
+      }
+    }
+    const locName = this.getLocationLabel(locationKey);
+    this.clearSelection();
+    if (App.Main) {
+      App.Main.hideLoading();
+      App.Main.showToast(`Přesunuto ${ids.length} položek do: ${locName}`, 'success', 2500);
+    }
+    this.renderItems();
+  },
+
+  async bulkAddToShopping() {
+    const ids = Array.from(this.selectedIds);
+    if (ids.length === 0) return;
+
+    if (App.Shopping) {
+      for (let id of ids) {
+        const item = this.items.find(i => i.id === id);
+        if (item) {
+          await App.Shopping.addItem({
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            category: item.category,
+            fromItemId: item.id
+          });
+        }
+      }
+      this.clearSelection();
+      if (App.Main) App.Main.showToast(`Přidáno ${ids.length} položek do nákupního seznamu`, 'success', 2500);
+    }
+  },
+
+  async bulkDelete() {
+    const ids = Array.from(this.selectedIds);
+    if (ids.length === 0) return;
+
+    if (confirm(`Opravdu chcete smazat ${ids.length} vybraných položek?`)) {
+      if (App.Main) App.Main.showLoading();
+      for (let id of ids) {
+        await this.deleteItem(id);
+      }
+      this.clearSelection();
+      if (App.Main) {
+        App.Main.hideLoading();
+        App.Main.showToast(`Smazáno ${ids.length} položek`, 'info', 2500);
+      }
+      this.renderItems();
     }
   },
 
@@ -217,23 +369,47 @@ App.Items = {
   getFilteredAndSorted() {
     let result = [...this.items];
 
+    // 1. Filtr kategorie
     if (this.currentFilters.category !== 'all') {
       result = result.filter(i => i.category === this.currentFilters.category);
     }
     
+    // 2. Filtr umístění / zóny
     if (this.currentFilters.location !== 'all') {
-      result = result.filter(i => i.location === this.currentFilters.location);
+      const loc = this.currentFilters.location;
+      result = result.filter(i => {
+        if (i.location === loc) return true;
+        // Pokud je filtr 'lednice', zahrnout i 'lednice_horni', 'lednice_dvere' apod.
+        if (loc === 'lednice' && i.location && i.location.startsWith('lednice')) return true;
+        if (loc === 'mrazak' && i.location && i.location.startsWith('mrazak')) return true;
+        if (loc === 'spiz' && i.location && i.location.startsWith('spiz')) return true;
+        return false;
+      });
     }
 
+    // 3. Inteligentní vyhledávání (Fuzzy + multi-term + synonyma + náhrady)
     if (this.currentFilters.search) {
-      const query = this.currentFilters.search.toLowerCase().trim();
-      result = result.filter(i => 
-        (i.name && i.name.toLowerCase().includes(query)) || 
-        (i.notes && i.notes.toLowerCase().includes(query)) ||
-        (i.barcode && i.barcode.includes(query))
-      );
+      const searchRes = App.AI ? App.AI.smartSearch(result, this.currentFilters.search) : { items: result, explanations: [] };
+      result = searchRes.items;
+      this.searchExplanations = searchRes.explanations;
+    } else {
+      this.searchExplanations = [];
     }
 
+    // Zobrazit vysvětlivky inteligentního vyhledávání
+    const searchFeedback = document.getElementById('search-smart-feedback');
+    if (searchFeedback) {
+      if (this.searchExplanations && this.searchExplanations.length > 0) {
+        searchFeedback.classList.remove('hidden');
+        searchFeedback.innerHTML = `
+          <span>💡 ${this.searchExplanations.map(e => `<strong>${e.match}</strong> ${e.note}`).join(' • ')}</span>
+        `;
+      } else {
+        searchFeedback.classList.add('hidden');
+      }
+    }
+
+    // 4. Řazení
     result.sort((a, b) => {
       const field = this.currentSort.field;
       let valA, valB;
@@ -335,6 +511,7 @@ App.Items = {
     if (items.length === 0) {
       container.innerHTML = '';
       if (emptyState) emptyState.classList.remove('hidden');
+      this.renderBulkBar();
       return;
     }
 
@@ -347,11 +524,16 @@ App.Items = {
         return this.currentSort.direction === 'asc' ? '<span style="color:var(--primary); font-size:0.75rem;">▲</span>' : '<span style="color:var(--primary); font-size:0.75rem;">▼</span>';
       };
 
+      const allSelected = items.length > 0 && items.every(i => this.selectedIds.has(i.id));
+
       container.className = 'inventory-table-container';
       container.innerHTML = `
         <table class="inventory-table">
           <thead>
             <tr>
+              <th style="width: 32px; text-align: center;">
+                <input type="checkbox" id="cb-select-all" ${allSelected ? 'checked' : ''} title="Označit vše">
+              </th>
               <th style="width: 44px; text-align: center;">Foto</th>
               <th class="col-sortable" onclick="App.Items.toggleSort('name')" title="Klikněte pro seřazení dle názvu">Název ${getSortArrow('name')}</th>
               <th class="col-sortable" onclick="App.Items.toggleSort('category')" title="Klikněte pro seřazení dle kategorie">Kategorie ${getSortArrow('category')}</th>
@@ -359,7 +541,7 @@ App.Items = {
               <th class="col-sortable" onclick="App.Items.toggleSort('quantity')" title="Klikněte pro seřazení dle množství">Množství ${getSortArrow('quantity')}</th>
               <th class="col-sortable" onclick="App.Items.toggleSort('price')" title="Klikněte pro seřazení dle ceny">Cena ${getSortArrow('price')}</th>
               <th class="col-sortable" onclick="App.Items.toggleSort('expiration')" title="Klikněte pro seřazení dle expirace">Expirace ${getSortArrow('expiration')}</th>
-              <th style="text-align: right; width: 100px;">Akce</th>
+              <th style="text-align: right; width: 140px;">Rychlé akce</th>
             </tr>
           </thead>
           <tbody>
@@ -368,12 +550,16 @@ App.Items = {
               const emoji = this.getCategoryEmoji(item.category);
               const priceText = item.price ? `${item.price.toFixed(1)} Kč` : '-';
               const cleanNameEscaped = (item.name || '').replace(/'/g, "\\'");
+              const isSelected = this.selectedIds.has(item.id);
 
               return `
-                <tr data-id="${item.id}" onclick="App.Items.openDetailModal('${item.id}')">
-                  <td style="text-align: center; padding: 6px;" onclick="event.stopPropagation();">
+                <tr data-id="${item.id}" class="${isSelected ? 'row-selected' : ''}" onclick="App.Items.openDetailModal('${item.id}')">
+                  <td style="text-align: center;" onclick="event.stopPropagation();">
+                    <input type="checkbox" class="item-select-cb" data-id="${item.id}" ${isSelected ? 'checked' : ''}>
+                  </td>
+                  <td style="text-align: center; padding: 4px;" onclick="event.stopPropagation();">
                     ${item.imageUrl 
-                      ? `<img src="${item.imageUrl}" class="table-thumbnail" onclick="App.Items.openImageViewer('${item.imageUrl}', '${cleanNameEscaped}')" title="Klikněte pro zobrazení celé fotky">`
+                      ? `<img src="${item.imageUrl}" class="table-thumbnail" onclick="App.Items.openImageViewer('${item.imageUrl}', '${cleanNameEscaped}')" title="Zobrazit celou fotku">`
                       : `<span class="table-emoji">${emoji}</span>`
                     }
                   </td>
@@ -386,8 +572,12 @@ App.Items = {
                   <td>
                     <span style="font-size: 0.85rem;">${this.getLocationLabel(item.location)}</span>
                   </td>
-                  <td style="font-weight: 600;">
-                    ${item.quantity} ${this.getUnitLabel(item.unit)}
+                  <td onclick="event.stopPropagation();">
+                    <div class="inline-qty-controls">
+                      <button type="button" class="btn-qty-mini" onclick="App.Items.updateQuantity('${item.id}', -1)" title="Ubrat 1">-</button>
+                      <span class="inline-qty-val">${item.quantity} ${this.getUnitLabel(item.unit)}</span>
+                      <button type="button" class="btn-qty-mini" onclick="App.Items.updateQuantity('${item.id}', 1)" title="Přidat 1">+</button>
+                    </div>
                   </td>
                   <td style="color: var(--text-secondary);">
                     ${priceText}
@@ -416,9 +606,13 @@ App.Items = {
         const emoji = this.getCategoryEmoji(item.category);
         const priceText = item.price ? `${item.price.toFixed(1)} Kč` : '';
         const cleanNameEscaped = (item.name || '').replace(/'/g, "\\'");
+        const isSelected = this.selectedIds.has(item.id);
 
         return `
-          <div class='item-card' data-id='${item.id}' data-category='${item.category}' onclick="App.Items.openDetailModal('${item.id}')">
+          <div class='item-card ${isSelected ? 'card-selected' : ''}' data-id='${item.id}' data-category='${item.category}' onclick="App.Items.openDetailModal('${item.id}')">
+            <div class="card-select-overlay" onclick="event.stopPropagation();">
+              <input type="checkbox" class="item-select-cb" data-id="${item.id}" ${isSelected ? 'checked' : ''}>
+            </div>
             <div class='item-card-image' ${item.imageUrl ? `onclick="event.stopPropagation(); App.Items.openImageViewer('${item.imageUrl}', '${cleanNameEscaped}')" title="Klikněte pro zobrazení celé fotky"` : ''}>
               ${item.imageUrl ? `<img src="${item.imageUrl}" style="width:100%; height:100%; object-fit:cover;"><span class="zoom-badge" title="Zvětšit fotku">🔍</span>` : emoji}
             </div>
@@ -433,19 +627,39 @@ App.Items = {
                 <span class='item-card-category'>${this.getCategoryLabel(item.category)}</span>
                 <span class='item-card-location'>${this.getLocationLabel(item.location)}</span>
               </div>
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto;">
-                <span class='item-card-quantity'>${item.quantity} ${this.getUnitLabel(item.unit)}</span>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto;" onclick="event.stopPropagation();">
+                <div class="inline-qty-controls">
+                  <button type="button" class="btn-qty-mini" onclick="App.Items.updateQuantity('${item.id}', -1)">-</button>
+                  <span class="inline-qty-val">${item.quantity} ${this.getUnitLabel(item.unit)}</span>
+                  <button type="button" class="btn-qty-mini" onclick="App.Items.updateQuantity('${item.id}', 1)">+</button>
+                </div>
                 <span class='item-card-price'>${priceText}</span>
               </div>
               <div class='item-card-expiration exp-${expStatus.status} ${expStatus.isBestBefore ? 'exp-best-before' : ''}'>
                 ${expStatus.text}
               </div>
             </div>
-            <span class='item-card-qty-badge'>${item.quantity} ${this.getUnitLabel(item.unit)}</span>
           </div>
         `;
       }).join('');
     }
+
+    // Checkboxy listeners
+    container.querySelectorAll('.item-select-cb').forEach(cb => {
+      cb.addEventListener('change', (e) => {
+        e.stopPropagation();
+        this.toggleSelect(e.target.dataset.id);
+      });
+    });
+
+    const masterCb = document.getElementById('cb-select-all');
+    if (masterCb) {
+      masterCb.addEventListener('change', (e) => {
+        this.toggleSelectAll(e.target.checked);
+      });
+    }
+
+    this.renderBulkBar();
   },
 
   getExpirationStatus(item) {
@@ -659,6 +873,18 @@ App.Items = {
     App.Main.showModal('modal-item-detail');
   },
 
+  openImageViewer(imageUrl, title = '') {
+    if (!imageUrl) return;
+    const modal = document.getElementById('modal-image-viewer');
+    const img = document.getElementById('image-viewer-img');
+    const titleEl = document.getElementById('image-viewer-title');
+    if (modal && img) {
+      img.src = imageUrl;
+      if (titleEl) titleEl.textContent = title ? `Fotka: ${title}` : 'Fotka potraviny';
+      if (App.Main) App.Main.showModal('modal-image-viewer');
+    }
+  },
+
   openConsumeModal(id, action = 'consumed') {
     const item = this.items.find(i => i.id === id);
     if (!item) return;
@@ -722,6 +948,9 @@ App.Items = {
   },
 
   getLocationLabel(val) {
+    if (App.Zones && typeof App.Zones.getZoneLabel === 'function') {
+      return App.Zones.getZoneLabel(val);
+    }
     const map = {
       'lednice': '🧊 Lednice', 'mrazak': '❄️ Mrazák', 'spiz': '🚪 Spíž',
       'suplik': '🗄️ Šuplík', 'skrin': '🗄️ Skříň', 'police': '📚 Police', 'ostatni': '📦 Ostatní'
@@ -781,9 +1010,43 @@ App.Items = {
       });
     }
 
-    // Nastavit výchozí stav tlačítek
     if (btnCards) btnCards.classList.toggle('active', this.viewMode === 'grid');
     if (btnTable) btnTable.classList.toggle('active', this.viewMode === 'table');
+  },
+
+  setupBulkActionsUI() {
+    const btnBulkConsume = document.getElementById('btn-bulk-consume');
+    const btnBulkMove = document.getElementById('btn-bulk-move');
+    const selectBulkMoveLoc = document.getElementById('select-bulk-move-location');
+    const btnBulkShopping = document.getElementById('btn-bulk-shopping');
+    const btnBulkDelete = document.getElementById('btn-bulk-delete');
+    const btnBulkCancel = document.getElementById('btn-bulk-cancel');
+
+    if (btnBulkConsume) {
+      btnBulkConsume.addEventListener('click', () => this.bulkConsume());
+    }
+
+    if (selectBulkMoveLoc) {
+      selectBulkMoveLoc.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val) {
+          this.bulkMoveTo(val);
+          e.target.value = '';
+        }
+      });
+    }
+
+    if (btnBulkShopping) {
+      btnBulkShopping.addEventListener('click', () => this.bulkAddToShopping());
+    }
+
+    if (btnBulkDelete) {
+      btnBulkDelete.addEventListener('click', () => this.bulkDelete());
+    }
+
+    if (btnBulkCancel) {
+      btnBulkCancel.addEventListener('click', () => this.clearSelection());
+    }
   },
 
   setupSortModal() {

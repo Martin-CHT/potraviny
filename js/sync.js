@@ -72,10 +72,24 @@ App.Sync = {
         }
       }
 
+      // 5. Importovat nákupní seznam
+      if (Array.isArray(result.shoppingList)) {
+        for (let s of result.shoppingList) {
+          if (!s.id) s.id = crypto.randomUUID();
+          const existS = await App.DB.get('shopping_list', s.id);
+          if (existS) await App.DB.put('shopping_list', { ...existS, ...s });
+          else await App.DB.add('shopping_list', s);
+        }
+        if (App.Shopping) {
+          await App.Shopping.loadItems();
+          App.Shopping.renderShoppingList();
+        }
+      }
+
       this.lastSyncTime = new Date();
       await App.DB.setSetting('lastSyncTime', this.lastSyncTime.toISOString());
       
-      this.updatePassphraseUI();
+      this.updatePassphraseUI('idle');
       this.updateLastSyncUI();
 
       if (App.Items) {
@@ -116,6 +130,7 @@ App.Sync = {
       const items = await App.DB.getAll('items') || [];
       const settings = await App.DB.getAllSettings() || {};
       const history = await App.DB.getAll('history') || [];
+      const shoppingList = await App.DB.getAll('shopping_list') || [];
 
       // Uložit do cloudu přes POST
       const payload = {
@@ -124,6 +139,7 @@ App.Sync = {
         items: items,
         settings: settings,
         history: history.slice(-100), // Posledních 100 záznamů historie
+        shoppingList: shoppingList,
         updatedAt: new Date().toISOString()
       };
 
@@ -337,12 +353,15 @@ App.Sync = {
       btnDisconnect.addEventListener('click', () => this.disconnectPassphrase());
     }
 
-    // Automatická synchronizace při jakékoliv změně položek i nastavení
     window.addEventListener('app:items-updated', () => {
       this.triggerAutoSync(1000);
     });
 
     window.addEventListener('app:settings-updated', () => {
+      this.triggerAutoSync(1000);
+    });
+
+    window.addEventListener('app:shopping-updated', () => {
       this.triggerAutoSync(1000);
     });
 

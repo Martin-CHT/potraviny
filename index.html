@@ -31,6 +31,11 @@
                     <span class="nav-icon">📦</span>
                     <span class="nav-label">Zásoby</span>
                 </button>
+                <button class="desktop-nav-item" data-view="shopping">
+                    <span class="nav-icon">🛒</span>
+                    <span class="nav-label">Nákup</span>
+                    <span id="shopping-pending-badge" class="badge hidden" style="background:var(--primary); color:white; margin-left:4px; font-size:0.7rem; padding:2px 6px;">0</span>
+                </button>
                 <button class="desktop-nav-item" data-view="scanner">
                     <span class="nav-icon">📸</span>
                     <span class="nav-label">Skenovat</span>
@@ -79,12 +84,15 @@
                 <button class="location-pill active" data-location="all">🏠 Vše</button>
                 <button class="location-pill" data-location="lednice">🧊 Lednice</button>
                 <button class="location-pill" data-location="mrazak">❄️ Mrazák</button>
-                <button class="location-pill" data-location="spiz">🏪 Spíž</button>
+                <button class="location-pill" data-location="spiz">🚪 Spíž</button>
                 <button class="location-pill" data-location="suplik">🗄️ Šuplík</button>
                 <button class="location-pill" data-location="skrin">🚪 Skříň</button>
                 <button class="location-pill" data-location="police">📚 Police</button>
                 <button class="location-pill" data-location="ostatni">📦 Ostatní</button>
+                <button type="button" id="btn-visual-zones" class="btn-secondary btn-small" style="margin-left:auto; white-space:nowrap; border-radius:20px; font-weight:600;">🧊 Vizuální zóny</button>
             </div>
+
+            <div id="search-smart-feedback" class="search-smart-banner hidden"></div>
 
             <div id="sort-bar">
                 <div class="sort-info">
@@ -94,6 +102,39 @@
                 <div class="view-mode-toggle">
                     <button type="button" id="btn-view-cards" class="view-toggle-btn active" title="Zobrazit jako karty">🔲 Karty</button>
                     <button type="button" id="btn-view-table" class="view-toggle-btn" title="Zobrazit jako tabulku">📋 Tabulka</button>
+                </div>
+            </div>
+
+            <!-- Floating Bulk Action Bar -->
+            <div id="bulk-action-bar" class="bulk-action-bar hidden">
+                <span id="bulk-selected-count" class="bulk-count">0 vybráno</span>
+                <div class="bulk-actions-buttons">
+                    <button type="button" id="btn-bulk-consume" class="btn-bulk" title="Spotřebovat 1 ks z každé">⚡ Spotřebovat</button>
+                    <select id="select-bulk-move-location" class="bulk-select">
+                        <option value="">📦 Přesunout do...</option>
+                        <optgroup label="🧊 Lednice">
+                            <option value="lednice_horni">Horní police</option>
+                            <option value="lednice_stredni">Střední police</option>
+                            <option value="lednice_dolni">Dolní police</option>
+                            <option value="lednice_dvere">Dveře</option>
+                            <option value="lednice_suplik">Šuplík na zeleninu</option>
+                        </optgroup>
+                        <optgroup label="❄️ Mrazák">
+                            <option value="mrazak_horni">Horní šuplík</option>
+                            <option value="mrazak_stredni">Střední šuplík</option>
+                            <option value="mrazak_dolni">Dolní šuplík</option>
+                        </optgroup>
+                        <optgroup label="🚪 Spíž a skříň">
+                            <option value="spiz_1">Spíž - Regál 1</option>
+                            <option value="spiz_2">Spíž - Regál 2</option>
+                            <option value="suplik">Šuplík</option>
+                            <option value="skrin">Skříň</option>
+                            <option value="police">Police</option>
+                        </optgroup>
+                    </select>
+                    <button type="button" id="btn-bulk-shopping" class="btn-bulk" title="Přidat do nákupního lístku">🛒 Koupit</button>
+                    <button type="button" id="btn-bulk-delete" class="btn-bulk btn-bulk-danger" title="Smazat vybrané">🗑️</button>
+                    <button type="button" id="btn-bulk-cancel" class="btn-bulk-close" title="Zrušit výběr">✕</button>
                 </div>
             </div>
 
@@ -264,6 +305,54 @@
                 <button id="btn-save-settings" class="btn-primary btn-block mt-3">Uložit nastavení</button>
             </div>
         </section>
+
+        <!-- View: Shopping List -->
+        <section id="view-shopping" class="view hidden">
+            <div class="shopping-header-card">
+                <h2>🛒 Nákupní seznam</h2>
+                <p class="text-small text-muted">Chytrý nákupní lístek s možností přímého přenosu do zásob a sdílení.</p>
+                
+                <form id="form-add-shopping-item" class="shopping-add-form mt-3">
+                    <input type="text" id="input-shopping-name" placeholder="Co je potřeba koupit (např. Máslo)..." required class="flex-2">
+                    <input type="number" id="input-shopping-qty" value="1" min="0.01" step="any" style="width: 70px;">
+                    <select id="input-shopping-unit" style="width: 75px;">
+                        <option value="ks">ks</option>
+                        <option value="kg">kg</option>
+                        <option value="g">g</option>
+                        <option value="l">l</option>
+                        <option value="ml">ml</option>
+                        <option value="baleni">balení</option>
+                        <option value="sacek">sáček</option>
+                    </select>
+                    <button type="submit" class="btn-primary">+ Přidat</button>
+                </form>
+
+                <div class="shopping-toolbar mt-3">
+                    <div class="shopping-filters">
+                        <button type="button" class="shopping-filter-tab active" data-filter="all">Vše</button>
+                        <button type="button" class="shopping-filter-tab" data-filter="pending">Koupit</button>
+                        <button type="button" class="shopping-filter-tab" data-filter="completed">V košíku</button>
+                    </div>
+                    <div class="shopping-actions">
+                        <button type="button" id="btn-shopping-copy" class="btn-secondary btn-small" title="Zkopírovat nákupní seznam pro SMS / WhatsApp">📋 Zkopírovat</button>
+                        <button type="button" id="btn-shopping-clear-checked" class="btn-text text-small" style="color:var(--text-secondary);">Vyčistit koupené</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="shopping-items-list" class="shopping-list-container"></div>
+            
+            <div id="shopping-empty-state" class="hidden text-center mt-4" style="padding: 30px 16px;">
+                <div style="font-size: 3.5rem; margin-bottom: 8px;">🛒</div>
+                <p style="color: var(--text-secondary); font-weight: 500;">Nákupní seznam je prázdný</p>
+            </div>
+
+            <div class="shopping-footer-bar" style="margin-top: 16px;">
+                <button type="button" id="btn-shopping-transfer" class="btn-primary btn-block hidden" style="background:#27ae60; font-size:1rem; padding:12px;">
+                    📥 Přenést koupené do zásob
+                </button>
+            </div>
+        </section>
     </main>
 
     <!-- FAB Container -->
@@ -283,6 +372,10 @@
         <button id="nav-inventory" class="bottom-nav-item active" data-view="inventory">
             <span class="nav-icon">📦</span>
             <span class="nav-label">Zásoby</span>
+        </button>
+        <button id="nav-shopping" class="bottom-nav-item" data-view="shopping">
+            <span class="nav-icon">🛒</span>
+            <span class="nav-label">Nákup</span>
         </button>
         <button id="nav-scanner" class="bottom-nav-item" data-view="scanner">
             <span class="nav-icon">📸</span>
@@ -337,15 +430,32 @@
                             </select>
                         </div>
                         <div class="form-group flex-1">
-                            <label for="item-location">Umístění</label>
+                            <label for="item-location">Umístění / Zóna</label>
                             <select id="item-location">
-                                <option value="lednice">Lednice</option>
-                                <option value="mrazak">Mrazák</option>
-                                <option value="spiz">Spíž</option>
-                                <option value="suplik">Šuplík</option>
-                                <option value="skrin">Skříň</option>
-                                <option value="police">Police</option>
-                                <option value="ostatni">Ostatní</option>
+                                <optgroup label="🧊 Lednice">
+                                    <option value="lednice_horni">Horní police</option>
+                                    <option value="lednice_stredni">Střední police</option>
+                                    <option value="lednice_dolni">Dolní police</option>
+                                    <option value="lednice_dvere">Dveře</option>
+                                    <option value="lednice_suplik">Šuplík na zeleninu</option>
+                                    <option value="lednice">Lednice (obecně)</option>
+                                </optgroup>
+                                <optgroup label="❄️ Mrazák">
+                                    <option value="mrazak_horni">Horní šuplík</option>
+                                    <option value="mrazak_stredni">Střední šuplík</option>
+                                    <option value="mrazak_dolni">Dolní šuplík</option>
+                                    <option value="mrazak">Mrazák (obecně)</option>
+                                </optgroup>
+                                <optgroup label="🚪 Spíž a police">
+                                    <option value="spiz_1">Spíž - Regál 1</option>
+                                    <option value="spiz_2">Spíž - Regál 2</option>
+                                    <option value="spiz_3">Spíž - Regál 3</option>
+                                    <option value="spiz">Spíž (obecně)</option>
+                                    <option value="suplik">Šuplík</option>
+                                    <option value="skrin">Skříň</option>
+                                    <option value="police">Police</option>
+                                    <option value="ostatni">Ostatní</option>
+                                </optgroup>
                             </select>
                         </div>
                     </div>
@@ -653,6 +763,41 @@
         </div>
     </div>
 
+    <!-- Modal: Visual Zones (Fridge / Freezer / Pantry) -->
+    <div id="modal-visual-zones" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content modal-large" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>🧊 Vizuální přehled (Zóny & Přihrádky)</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-small text-muted mb-3">Kliknutím na přihrádku nebo šuplík vyfiltrujete položky v zásobách. Kliknutím na potravinu zobrazíte její detail.</p>
+                <div id="visual-zones-container"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary modal-close">Zavřít</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Notifications & Expiring Items -->
+    <div id="modal-notifications" class="modal hidden">
+        <div class="modal-overlay modal-backdrop"></div>
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="modal-header">
+                <h2>🔔 Upozornění a expirace</h2>
+                <button class="btn-close modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="notifications-list-container"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary modal-close">Zavřít</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
@@ -664,6 +809,8 @@
     <!-- Scripts -->
     <script src="js/db.js"></script>
     <script src="js/ai.js"></script>
+    <script src="js/zones.js"></script>
+    <script src="js/shopping.js"></script>
     <script src="js/items.js"></script>
     <script src="js/scanner.js"></script>
     <script src="js/voice.js"></script>

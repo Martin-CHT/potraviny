@@ -37,9 +37,6 @@ App.Notifications = {
     if (!App.Items || !App.Items.items) return;
     
     const warningDays = (await App.DB.getSetting('expirationWarningDays')) || (await App.DB.getSetting('setting-exp-days')) || 3;
-    const now = new Date();
-    today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
     let expiringCount = 0;
     const criticalItems = [];
     
@@ -76,7 +73,6 @@ App.Notifications = {
           tag: tag
         });
       } catch (e) {
-        // Fallback pro mobilní service worker
         if (navigator.serviceWorker?.controller) {
           navigator.serviceWorker.ready.then(reg => {
             reg.showNotification(title, {
@@ -107,7 +103,6 @@ App.Notifications = {
   },
   
   scheduleCheck() {
-    // Kontrola každou hodinu
     setInterval(() => {
       this.checkExpirations();
     }, 60 * 60 * 1000);
@@ -130,18 +125,74 @@ App.Notifications = {
   },
   
   showExpiringItemsModal() {
-    const list = this.getExpiringItems();
-    if (list.length === 0) {
-      if (App.Main) App.Main.showToast('Všechny potraviny jsou čerstvé! Žádná nekončí v příštích 7 dnech. 🟢', 'success', 3000);
+    const modal = document.getElementById('modal-notifications');
+    const container = document.getElementById('notifications-list-container');
+    if (!modal || !container) {
+      // Fallback
+      if (App.Items && App.Main) {
+        App.Main.navigate('inventory');
+        App.Items.setSort('expiration', 'asc');
+      }
       return;
     }
 
-    // Nastavit filtr na expirující
-    if (App.Items && App.Main) {
-      App.Main.navigate('inventory');
-      App.Items.setSort('expiration', 'asc');
-      App.Main.showToast(`Zobrazeno ${list.length} potravin seřazených dle expirace.`, 'info', 3000);
+    const list = this.getExpiringItems();
+    const shoppingPending = App.Shopping ? App.Shopping.items.filter(i => !i.checked).length : 0;
+
+    if (list.length === 0 && shoppingPending === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding: 24px 0;">
+          <div style="font-size:3rem; margin-bottom:8px;">🟢</div>
+          <h3>Vše je v pořádku!</h3>
+          <p class="text-muted">Žádným potravinám nekončí expirace v příštích 7 dnech a nákupní seznam je prázdný.</p>
+        </div>
+      `;
+    } else {
+      const expiringNames = list.map(i => i.item.name).slice(0, 3).join(' ');
+
+      container.innerHTML = `
+        ${list.length > 0 ? `
+          <div class="notif-section mb-3">
+            <h4 style="color:var(--danger); display:flex; align-items:center; gap:6px;">⚠️ Expirující potraviny (${list.length})</h4>
+            <div class="notif-items-list mt-2">
+              ${list.map(({ item, status }) => {
+                const emoji = App.Items.getCategoryEmoji(item.category);
+                return `
+                  <div class="notif-item-row" style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);">
+                    <div style="cursor:pointer;" onclick="App.Main.hideModal('modal-notifications'); App.Items.openDetailModal('${item.id}')">
+                      <strong>${emoji} ${item.name}</strong>
+                      <div class="text-small text-muted">${status.text} • ${item.quantity} ${item.unit}</div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                      <button type="button" class="btn-quick-consume" onclick="App.Items.quickConsume('${item.id}', 1); App.Notifications.showExpiringItemsModal();" title="Spotřebovat 1 ks">
+                        ⚡ Spotřebovat
+                      </button>
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            ${expiringNames ? `
+              <button type="button" class="btn-secondary btn-block btn-small mt-2" onclick="App.Main.hideModal('modal-notifications'); App.Main.navigate('recipes'); App.Recipes.openReceptySearch('${expiringNames.replace(/'/g, "\\'")}');">
+                🍳 Vyhledat recepty z expirujících potravin
+              </button>
+            ` : ''}
+          </div>
+        ` : ''}
+
+        ${shoppingPending > 0 ? `
+          <div class="notif-section mt-3 pt-2" style="border-top: 1px solid var(--border);">
+            <h4 style="color:var(--primary); display:flex; align-items:center; gap:6px;">🛒 Nákupní seznam (${shoppingPending})</h4>
+            <p class="text-small text-muted">Máte ${shoppingPending} položek k nakoupení.</p>
+            <button type="button" class="btn-primary btn-block btn-small mt-2" onclick="App.Main.hideModal('modal-notifications'); App.Main.navigate('shopping');">
+              Přejít do nákupního seznamu
+            </button>
+          </div>
+        ` : ''}
+      `;
     }
+
+    if (App.Main) App.Main.showModal('modal-notifications');
   },
 
   setupNotificationUI() {
@@ -151,4 +202,3 @@ App.Notifications = {
     }
   }
 };
-

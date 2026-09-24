@@ -958,3 +958,463 @@ input:checked + .slider:before { transform: translateX(20px); }
   .grid-container { display: block; }
   .item-card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; margin-bottom: 16px; page-break-inside: avoid; }
 }
+
+/* ==========================================================
+   Bulk Actions Floating Bar & Item Selection
+   ========================================================== */
+#bulk-action-bar {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+  border-radius: 30px;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 1500;
+  max-width: 95vw;
+  flex-wrap: wrap;
+  justify-content: center;
+  animation: slideUp 0.25s ease-out;
+}
+
+@media (min-width: 769px) {
+  #bulk-action-bar {
+    bottom: 30px;
+  }
+}
+
+.bulk-count-badge {
+  background: var(--primary);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.bulk-actions-buttons {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-bulk {
+  padding: 6px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.btn-bulk:hover {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.btn-bulk.btn-bulk-danger:hover {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: white;
+}
+
+.card-select-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 5;
+}
+
+.item-select-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+/* ==========================================================
+   Inline Quantity Controls (+ / -)
+   ========================================================== */
+.inline-qty-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--background);
+  padding: 2px 6px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+}
+
+.btn-qty-mini {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-weight: bold;
+  font-size: 0.9rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  transition: all 0.15s;
+}
+
+.btn-qty-mini:hover {
+  background: var(--primary);
+  color: white;
+  transform: scale(1.1);
+}
+
+.inline-qty-val {
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Quick consume button on cards */
+.btn-quick-consume-card {
+  padding: 4px 8px;
+  background: rgba(39, 174, 96, 0.15);
+  color: #27ae60;
+  border: 1px solid rgba(39, 174, 96, 0.3);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-quick-consume-card:hover {
+  background: #27ae60;
+  color: white;
+}
+
+/* ==========================================================
+   Smart Search Feedback Banner
+   ========================================================== */
+.search-smart-banner {
+  background: linear-gradient(135deg, rgba(26, 115, 232, 0.08), rgba(52, 168, 83, 0.08));
+  border: 1px solid rgba(26, 115, 232, 0.25);
+  border-radius: var(--border-radius-md);
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.search-smart-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.smart-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.smart-chip.chip-match { background: rgba(52, 168, 83, 0.18); color: #2e7d32; }
+.smart-chip.chip-synonym { background: rgba(26, 115, 232, 0.18); color: #1565c0; }
+.smart-chip.chip-substitute { background: rgba(243, 156, 18, 0.2); color: #d35400; }
+.smart-chip.chip-fuzzy { background: rgba(155, 89, 182, 0.18); color: #8e44ad; }
+
+/* ==========================================================
+   Shopping List (Nákupní seznam)
+   ========================================================== */
+.shopping-header-card {
+  background: var(--surface);
+  border-radius: var(--border-radius-md);
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.shopping-add-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.shopping-add-form input,
+.shopping-add-form select {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-sm);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.shopping-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shopping-filters {
+  display: flex;
+  gap: 4px;
+  background: var(--background);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.shopping-filter-tab {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.shopping-filter-tab.active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.shopping-list-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.shopping-item-card {
+  background: var(--surface);
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.shopping-item-card:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+.shopping-item-card.completed {
+  opacity: 0.6;
+  background: var(--background);
+}
+
+.shopping-item-card.completed .shopping-item-name {
+  text-decoration: line-through;
+}
+
+.shopping-cb-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.shopping-cb-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--success);
+  cursor: pointer;
+}
+
+.shopping-item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.shopping-item-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+
+.shopping-item-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.shopping-qty-pill {
+  background: var(--background);
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* ==========================================================
+   Visual Fridge / Freezer / Pantry Layout
+   ========================================================== */
+.visual-fridge-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .visual-fridge-layout {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.appliance-card {
+  background: var(--surface);
+  border-radius: var(--border-radius-md);
+  border: 2px solid var(--border);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+}
+
+.fridge-box { border-top: 4px solid #1a73e8; }
+.freezer-box { border-top: 4px solid #00acc1; }
+.pantry-box { border-top: 4px solid #e67e22; }
+
+.appliance-header {
+  padding: 10px 14px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.appliance-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.appliance-body {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.zone-shelf,
+.zone-drawer {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.zone-shelf:hover,
+.zone-drawer:hover {
+  border-color: var(--primary);
+  background: rgba(26, 115, 232, 0.05);
+}
+
+.zone-drawer {
+  border-style: dashed;
+}
+
+.zone-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.zone-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 28px;
+  align-items: center;
+}
+
+.zone-row-split {
+  display: flex;
+  gap: 8px;
+}
+
+.visual-item-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.visual-item-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+.visual-item-chip.exp-expired {
+  border-color: var(--danger);
+  background: rgba(234, 67, 53, 0.12);
+  color: var(--danger);
+}
+
+.visual-item-chip.exp-expiring_critical {
+  border-color: #e67e22;
+  background: rgba(230, 126, 34, 0.15);
+}
+
+.visual-item-chip.exp-expiring_soon {
+  border-color: #f1c40f;
+  background: rgba(241, 196, 15, 0.15);
+}
+
+.chip-qty {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  font-weight: normal;
+}
+

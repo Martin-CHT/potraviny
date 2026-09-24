@@ -15,6 +15,18 @@ App.Main = {
         App.Items.setupLocationFilters();
         App.Items.setupSortModal();
         App.Items.setupViewModeToggle();
+        if (typeof App.Items.setupBulkActionsUI === 'function') {
+          App.Items.setupBulkActionsUI();
+        }
+      }
+
+      if (App.Shopping && typeof App.Shopping.setupShoppingUI === 'function') {
+        App.Shopping.setupShoppingUI();
+        await App.Shopping.loadItems();
+      }
+
+      if (App.Zones && typeof App.Zones.setupZonesUI === 'function') {
+        App.Zones.setupZonesUI();
       }
 
       if (App.Scanner && typeof App.Scanner.setupScannerUI === 'function') {
@@ -111,6 +123,10 @@ App.Main = {
 
     if (viewId === 'recipes' && App.Recipes && typeof App.Recipes.searchFromStock === 'function') {
       App.Recipes.searchFromStock();
+    }
+
+    if (viewId === 'shopping' && App.Shopping && typeof App.Shopping.loadItems === 'function') {
+      App.Shopping.loadItems();
     }
   },
   
